@@ -1,20 +1,25 @@
 #ifndef SOLVER_H  // Replace MATRIX_H with your unique guard macro name
 #define SOLVER_H
 
-#include <iostream>
-
 #include <complex>
+#include <iostream>
 #include <vector>
-
+#include "Grid.h"
 #include "Matrix.h"
+#include "Parameters.h"
 
 std::pair<std::complex<double>, Matrix<std::complex<double>>>
 NewtonTraceIteration(std::complex<double> lambda, double tol);
 
 std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIterationSecantMethod(std::complex<double> lambda, double tol);
+NewtonTraceIterationSecantMethod(std::complex<double> lambda,
+                                 const double& tol,
+                                 const Parameters& para,
+                                 const Matrix<double>& coeff_matrix,
+                                 const Grid<double>& grid_info);
 
 template <typename T>
+
 Matrix<T> nullSpace(const Matrix<T>& A) {
     // Check if the matrix is square
     if (A.rows() != A.cols()) {
@@ -54,6 +59,37 @@ Matrix<T> nullSpace(const Matrix<T>& A) {
     }
 
     return null_space;
-};
+};  // this is not tested
+
+// Function representing the nonlinear eigenvalue problem (NLEP)
+// F(lambda, x) = 0
+template <typename Func>
+Matrix<std::complex<double>> F(const std::complex<double>& tau,
+                               const std::complex<double>& lambda,
+                               const Func& func,
+                               const Matrix<double>& coeff_matrix,
+                               const Grid<double>& grid_info) {
+    // Implement the NLEP function here
+    // This function should return a vector representing the residual (F(lambda,
+    // x)) for a given eigenvalue (lambda) and eigenvector (x)
+
+    Matrix<std::complex<double>> quadrature_matrix(grid_info.npoints,
+                                                   grid_info.npoints);
+    Matrix<std::complex<double>> f_lambda(grid_info.npoints, grid_info.npoints);
+
+    for (unsigned int j = 0; j < grid_info.npoints; j++) {
+        for (unsigned int i = 0; i < grid_info.npoints; i++) {
+            if (i == j) {
+                quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
+            } else {
+                quadrature_matrix(i, j) =
+                    -func(grid_info.grid[i], grid_info.grid[j], lambda) *
+                    coeff_matrix(i, j) * grid_info.dx;
+            }
+        }
+    }
+
+    return quadrature_matrix;
+}
 
 #endif

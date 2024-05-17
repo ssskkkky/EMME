@@ -8,14 +8,14 @@ CXXFLAGS = -Wall -std=c++17
 TARGET = emme
 
 # Define all source files
-SRCS = main.cpp Parameters.cpp solver.cpp
+SRCS = *.cpp
 
 # Define all header files (usually only the main header)
-HDRS = Parameters.h solver.h
+HDRS = *.h
 
 # Build the executable
 $(TARGET): $(SRCS) $(HDRS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
+	$(CXX) $(CXXFLAGS) -O2 -o $(TARGET) $(SRCS)
 
 # Clean the project (removes the executable)
 clean:

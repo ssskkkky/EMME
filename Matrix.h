@@ -1,6 +1,7 @@
 #ifndef MATRIX_H  // Replace MATRIX_H with your unique guard macro name
 #define MATRIX_H
 
+#include <complex>
 #include <stdexcept>
 #include <tuple>
 #include <vector>
@@ -17,14 +18,14 @@ class Matrix {
     const T* end() const { return data_.data() + data_.size(); }
 
     // Access element at (row, col)
-    T& operator()(int row, int col) {
+    T& operator()(unsigned int row, unsigned int col) {
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
         return data_[row * cols_ + col];
     }
 
-    const T& operator()(int row, int col) const {
+    const T& operator()(unsigned int row, unsigned int col) const {
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
@@ -43,8 +44,8 @@ class Matrix {
         Matrix<T> result(rows_, cols_);
 
         // Subtract corresponding elements from each matrix
-        for (int i = 0; i < rows_; ++i) {
-            for (int j = 0; j < cols_; ++j) {
+        for (unsigned int i = 0; i < rows_; ++i) {
+            for (unsigned int j = 0; j < cols_; ++j) {
                 result(i, j) =
                     data_[i * cols_ + j] - other.data_[i * cols_ + j];
             }
@@ -64,12 +65,28 @@ class Matrix {
         Matrix<T> result(rows_, cols_);
 
         // Divide each element by the scalar
-        for (int i = 0; i < rows_; ++i) {
-            for (int j = 0; j < cols_; ++j) {
+        for (unsigned int i = 0; i < rows_; ++i) {
+            for (unsigned int j = 0; j < cols_; ++j) {
                 result(i, j) = data_[i * cols_ + j] / scalar;
             }
         }
 
+        return result;
+    }
+
+    // Element-wise matrix multiplication (overloaded operator *)
+    Matrix<T> operator*(const Matrix<T>& other) const {
+        if (rows_ != other.rows_ || cols_ != other.cols_) {
+            throw std::invalid_argument(
+                "Matrices must have the same dimensions for element-wise "
+                "multiplication");
+        }
+        Matrix<T> result(rows_, cols_);
+        for (unsigned int i = 0; i < rows_; ++i) {
+            for (unsigned int j = 0; j < cols_; ++j) {
+                result(i, j) = (*this)(i, j) * other(i, j);
+            }
+        }
         return result;
     }
 
@@ -80,13 +97,15 @@ class Matrix {
     int getCols() const { return cols_; }
 
     // Get a reference to a specific column
-    const std::vector<T> getCol(int col) const {
+    const std::vector<T> getCol(unsigned int col) const {
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
 
         std::vector<T> col_view(rows_);
-        for (int i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
+        for (unsigned int i = 0; i < rows_; ++i) {
+            col_view[i] = (*this)(i, col);
+        }
         return col_view;
     }
 
@@ -114,7 +133,7 @@ class Matrix {
     }
 
     // Assign values to a specific column
-    void setCol(int col, const std::vector<T>& new_col) {
+    void setCol(unsigned int col, const std::vector<T>& new_col) {
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
@@ -122,7 +141,9 @@ class Matrix {
             throw std::invalid_argument("Column size mismatch");
         }
 
-        for (int i = 0; i < rows_; ++i) { (*this)(i, col) = new_col[i]; }
+        for (unsigned int i = 0; i < rows_; ++i) {
+            (*this)(i, col) = new_col[i];
+        }
     }
 
     // Assign values to a specific row
@@ -145,7 +166,7 @@ class Matrix {
         }
 
         T sum = 0.0;
-        for (int i = 0; i < rows_; ++i) {
+        for (unsigned int i = 0; i < rows_; ++i) {
             sum += (*this)(i, i);  // Access diagonal element using (i, i)
         }
         return sum;
@@ -201,8 +222,8 @@ class Matrix {
     }
 
    private:
-    int rows_;
-    int cols_;
+    unsigned int rows_;
+    unsigned int cols_;
     std::vector<T> data_;
 };
 

@@ -1,25 +1,11 @@
-#include <iostream>
-
+#include "solver.h"
 #include <complex>
+#include <iostream>
 #include <vector>
-
+#include "Grid.h"
 #include "Matrix.h"
-
-// Function representing the nonlinear eigenvalue problem (NLEP)
-// F(lambda, x) = 0
-Matrix<std::complex<double>> F(std::complex<double> lambda) {
-    // Implement the NLEP function here
-    // This function should return a vector representing the residual (F(lambda,
-    // x)) for a given eigenvalue (lambda) and eigenvector (x)
-
-    Matrix<std::complex<double>> f_lambda(2, 2);
-    f_lambda(0, 0) = std::exp(std::complex<double>(0, 1) * lambda * lambda);
-    f_lambda(0, 1) = 1.0;
-    f_lambda(1, 0) = 1.0;
-    f_lambda(1, 1) = 1.0;
-
-    return f_lambda;
-}
+#include "Parameters.h"
+#include "functions.h"
 
 // Jacobian of F(lambda)
 Matrix<std::complex<double>> Jacobian(std::complex<double> lambda) {
@@ -150,55 +136,73 @@ std::vector<std::complex<double>> LUSolveLinearSystem(
     return x;
 }
 
+// // Newton trace iteration for NLEP
+// std::pair<std::complex<double>, Matrix<std::complex<double>>>
+// NewtonTraceIteration(std::complex<double> lambda, double tol) {
+//     int max_iter = 100;
+//     for (int i = 0; i < max_iter; ++i) {
+//         Matrix<std::complex<double>> F_lambda = F(lambda);
+//         Matrix<std::complex<double>>
+//         linear_solution_matrix(F_lambda.getRows(),
+//                                                             F_lambda.getCols());
+
+//         Matrix<std::complex<double>> J_lambda = Jacobian(lambda);
+
+//         auto l_u_p = F_lambda.luDecomposition();
+
+//         for (int j = 0; j < F_lambda.getCols(); ++j) {
+//             linear_solution_matrix.setCol(
+//                 j, LUSolveLinearSystem(l_u_p, J_lambda.getCol(j)));
+//         };  // getCol and setCol is slow, need to be optimized;
+
+//         // Update eigenvalue and eigenvector
+//         auto one_over_linear_solution_matrix_trace =
+//             1.0 / linear_solution_matrix.trace();
+
+//         if (std::abs(one_over_linear_solution_matrix_trace) >
+//             std::abs(tol * lambda)) {
+//             lambda -= one_over_linear_solution_matrix_trace;
+//         } else {
+//             return {lambda, F(lambda)};
+//         }
+//     }
+
+//     // // Throw an exception or return a flag if convergence is not achieved
+//     // throw std::runtime_error(
+//     //     "Newton trace iteration did not converge within maximum
+//     iterations");
+
+//     return {lambda, F(lambda)};
+// }
+
 // Newton trace iteration for NLEP
 std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIteration(std::complex<double> lambda, double tol) {
-    int max_iter = 100;
-    for (int i = 0; i < max_iter; ++i) {
-        Matrix<std::complex<double>> F_lambda = F(lambda);
-        Matrix<std::complex<double>> linear_solution_matrix(F_lambda.getRows(),
-                                                            F_lambda.getCols());
-
-        Matrix<std::complex<double>> J_lambda = Jacobian(lambda);
-
-        auto l_u_p = F_lambda.luDecomposition();
-
-        for (int j = 0; j < F_lambda.getCols(); ++j) {
-            linear_solution_matrix.setCol(
-                j, LUSolveLinearSystem(l_u_p, J_lambda.getCol(j)));
-        };  // getCol and setCol is slow, need to be optimized;
-
-        // Update eigenvalue and eigenvector
-        auto one_over_linear_solution_matrix_trace =
-            1.0 / linear_solution_matrix.trace();
-
-        if (std::abs(one_over_linear_solution_matrix_trace) >
-            std::abs(tol * lambda)) {
-            lambda -= one_over_linear_solution_matrix_trace;
-        } else {
-            return {lambda, F(lambda)};
-        }
-    }
-
-    // // Throw an exception or return a flag if convergence is not achieved
-    // throw std::runtime_error(
-    //     "Newton trace iteration did not converge within maximum iterations");
-
-    return {lambda, F(lambda)};
-}
-
-// Newton trace iteration for NLEP
-std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIterationSecantMethod(std::complex<double> lambda, double tol) {
+NewtonTraceIterationSecantMethod(std::complex<double> lambda,
+                                 const double& tol,
+                                 const Parameters& para,
+                                 const Matrix<double>& coeff_matrix,
+                                 const Grid<double>& grid_info) {
     int max_iter = 100;
 
-    Matrix<std::complex<double>> F_lambda = F(lambda);
+    Matrix<std::complex<double>> F_lambda = F(
+        para.tau, lambda,
+        [&para](double eta, double eta_p, std::complex<double> omega) {
+            return para.kappa_f_tau(eta, eta_p, omega);
+        },
+        coeff_matrix, grid_info);
     Matrix<std::complex<double>> F_old_lambda = F_lambda;
     Matrix<std::complex<double>> linear_solution_matrix(F_lambda.getRows(),
                                                         F_lambda.getCols());
 
     Matrix<std::complex<double>> J_lambda =
-        (F(lambda) - F(lambda * 0.99)) / (0.01 * lambda);
+        (F_lambda -
+         F(
+             para.tau, lambda * 0.99,
+             [&para](double eta, double eta_p, std::complex<double> omega) {
+                 return para.kappa_f_tau(eta, eta_p, omega);
+             },
+             coeff_matrix, grid_info)) /
+        (0.01 * lambda);
 
     for (int i = 0; i < max_iter; ++i) {
         auto l_u_p = F_lambda.luDecomposition();
@@ -213,12 +217,18 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda, double tol) {
 
         if (std::abs(d_lambda) > std::abs(tol * lambda)) {
             lambda -= d_lambda;
+            std::cout << lambda << std::endl;
         } else {
-            return {lambda, F(lambda)};
+            return {lambda, F_lambda};
         }
 
         F_old_lambda = F_lambda;
-        F_lambda = F(lambda);
+        F_lambda = F(
+            para.tau, lambda,
+            [&para](double eta, double eta_p, std::complex<double> omega) {
+                return para.kappa_f_tau(eta, eta_p, omega);
+            },
+            coeff_matrix, grid_info);
         J_lambda = (F_old_lambda - F_lambda) / (d_lambda);
     }
 
@@ -226,7 +236,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda, double tol) {
     // throw std::runtime_error(
     //     "Newton trace iteration did not converge within maximum iterations");
 
-    return {lambda, F(lambda)};
+    return {lambda, F_lambda};
 }
 
 // int main() {

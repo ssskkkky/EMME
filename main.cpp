@@ -5,7 +5,7 @@
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
-// #include "function.h"
+#include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
 
@@ -40,14 +40,21 @@ int main() {
 
     // std::tie(omega_s_i, omega_d_bar) = initiallize(vt, tau);
 
+    // Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
+    //                 eta_i_input, b_theta_input, R_input, vt_input,
+    //                 length_input, theta_input, npoints_input,
+    //                 iteration_step_limit_input);
+
     std::complex<double> omega_initial_guess(1.0, 1.0);
 
-    double length = 10.0;
-    int npoints = 32;
-    Grid grid_info(length, npoints);
     Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
                     eta_i_input, b_theta_input, R_input, vt_input, length_input,
                     theta_input, npoints_input, iteration_step_limit_input);
+
+    auto length = para.length;
+    auto npoints = para.npoints;
+
+    Grid<double> grid_info(length, npoints);
 
     // Matrix iter_matrix =
     //     matrix_assembler(tau, omega_iter, kappa_f, coeff_matrix,
@@ -56,7 +63,7 @@ int main() {
     // Matrix coeff_matrix =
     //     singularity_handler(grid_info, gauss_order, interpolation_order);
 
-    Matrix coeff_matrix = SingularityHandler(npoints);
+    Matrix<double> coeff_matrix = SingularityHandler(npoints);
 
     // IterateSolver iter_solver(tau, omega_initial, matrix_assembler,
     //                           coeff_matrix, grid_info, iteration_step_limit);
@@ -67,15 +74,41 @@ int main() {
 
     // output(filename);
 
-    std::complex<double> lambda0 = 2.4;
+    std::complex<double> lambda0 = {-1.4, 0.1};
 
     // Set the tolerance for convergence
     double tol = 1e-6;
 
-    std::pair<std::complex<double>, Matrix<std::complex<double>>> result =
-        NewtonTraceIterationSecantMethod(lambda0, tol);
+    auto result = NewtonTraceIterationSecantMethod(lambda0, tol, para,
+                                                   coeff_matrix, grid_info);
 
     std::cout << "Eigenvalue: " << result.first << std::endl;
+
+    // std::cout << para.kappa_f_tau(3.0, 2.0, 1.0);
+
+    // std::cout << 1.0 / para.lambda_f_tau(3.0, 2.0, 1.0) *
+    //                  util::bessel_ic(
+    //                      0, std::sqrt((para.bi(3.0) * para.bi(2.0)) /
+    //                                   para.lambda_f_tau(3.0, 2.0, 1.0))) *
+    //                  std::exp(-(para.bi(3.0) + para.bi(2.0)) /
+    //                           (2.0 * para.lambda_f_tau(3.0, 2.0, 1.0)));
+
+    // std::cout << 1.0 / para.lambda_f_tau(3.0, 2.0, 1.0);
+
+    // std::cout << std::sqrt((para.bi(3.0) * para.bi(2.0))) /
+    //                  para.lambda_f_tau(3.0, 2.0, 1.0);
+
+    // std::cout << util::bessel_ic(0,
+    //                              std::sqrt((para.bi(3.0) * para.bi(2.0)) /
+    //                                        para.lambda_f_tau(3.0, 2.0, 1.0)));
+
+    // std::cout << std::exp(-(para.bi(3.0) + para.bi(2.0)) /
+    //                       (2.0 * para.lambda_f_tau(3.0, 2.0, 1.0)));
+
+    // std::cout << para.bi(3.0) * para.bi(2.0);
+
+    // std::cout << para.bi(3.0);
+    // std::cout << para.bi(2.0);
 
     return 0;
 }

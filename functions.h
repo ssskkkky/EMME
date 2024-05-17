@@ -1,7 +1,11 @@
-#ifndef FUNCTION_H  // Replace MATRIX_H with your unique guard macro name
-#define FUNCTION_H
+#ifndef FUNCTIONS_H  // Replace MATRIX_H with your unique guard macro name
+#define FUNCTIONS_H
 
+#include <array>
+#include <cmath>
+#include <limits>
 #include <string>
+#include <type_traits>
 
 // Function to read contents of a file line by line
 std::string readInputFromFile(const std::string& filename);

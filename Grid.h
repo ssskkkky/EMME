@@ -5,16 +5,16 @@
 
 template <typename T>
 struct Grid {
-    Grid(T leni, int npointsi)
+    Grid(T leni, unsigned int npointsi)
         : len(leni),
           npoints(npointsi),
           dx((2 * leni) / (npoints - 1)),
           grid(npoints) {
-        for (int i; i < npoints; i++) { grid[i] = -leni + i * dx; }
+        for (unsigned int i = 0; i < npoints; i++) { grid[i] = -len + i * dx; }
     }
 
     T len;
-    int npoints;
+    unsigned int npoints;
     T dx;
     std::vector<T> grid;
 };
