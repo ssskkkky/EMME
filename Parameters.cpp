@@ -52,30 +52,37 @@ std::complex<double> Parameters::lambda_f_tau(double eta,
                      (q * R * (eta - eta_p)) * beta_1(eta, eta_p);
 }
 
-// std::array<std::complex<double>, 5>
-void Parameters::integration_lambda_arg(double eta, double eta_p, double tau) {
-    lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
-    arg = std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
+std::array<std::complex<double>, 5>
+Parameters::integration_lambda_arg(double eta, double eta_p, double tau) {
+    std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
+    std::complex<double> arg =
+        std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
     // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
     // std::complex<double> bessel_1 = util::bessel_ic(1, arg);
-    exp_term = std::exp(-(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau_term));
+    std::complex<double> exp_term =
+        std::exp(-(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau_term));
     auto binding_bessel = util::bessel_i_helper(arg);
-    bessel_0 = binding_bessel[0];
-    bessel_1 = binding_bessel[1];
-    return;
+    std::complex<double> bessel_0 = binding_bessel[0];
+    std::complex<double> bessel_1 = binding_bessel[1];
+    return {lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1};
 }
 
-std::complex<double> Parameters::integration_lambda_tau(double eta,
-                                                        double eta_p,
-                                                        double tau) const {
+std::complex<double> Parameters::integration_lambda_tau(
+    double eta,
+    double eta_p,
+    double tau,
+    std::array<std::complex<double>, 5> int_arg) const {
+    auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
+
     return 1.0 / lambda_f_tau_term * bessel_0 * exp_term;
 }
 
-std::complex<double> Parameters::integration_lambda_d_tau(double eta,
-                                                          double eta_p,
-                                                          double tau) const {
-    // auto [arg, bessel_0, bessel_1, exp_term, lambda_f_tau_term] =
-    //     integration_lambda_arg(eta, eta_p, tau);
+std::complex<double> Parameters::integration_lambda_d_tau(
+    double eta,
+    double eta_p,
+    double tau,
+    std::array<std::complex<double>, 5> int_arg) const {
+    auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
     // std::complex<double> arg =
     //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau(eta, eta_p, tau);
     // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
@@ -110,7 +117,7 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
         // std::complex<double> arg =
         //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_taut(eta, eta_p, taut);
 
-        integration_lambda_arg(eta, eta_p, taut);
+        auto passer = integration_lambda_arg(eta, eta_p, taut);
 
         std::complex<double> term1 =
             (omega -
@@ -119,9 +126,10 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
                   eta_i * (0.5 * std::pow((q * R * (eta - eta_p)) / (vt * taut),
                                           2) -
                            1.5))) *
-            integration_lambda_tau(eta, eta_p, taut);
+            integration_lambda_tau(eta, eta_p, taut, passer);
         std::complex<double> term2 =
-            omega_s_i * eta_i * integration_lambda_d_tau(eta, eta_p, taut);
+            omega_s_i * eta_i *
+            integration_lambda_d_tau(eta, eta_p, taut, passer);
         return std::exp(-0.5 *
                         std::pow((q * R * (eta - eta_p)) / (vt * taut), 2)) /
                taut * (term1 + term2) *

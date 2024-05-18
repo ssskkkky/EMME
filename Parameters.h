@@ -43,12 +43,16 @@ struct Parameters {
     std::complex<double> lambda_f_tau(double eta,
                                       double eta_p,
                                       double tau) const;
-    std::complex<double> integration_lambda_tau(double eta,
-                                                double eta_p,
-                                                double tau) const;
-    std::complex<double> integration_lambda_d_tau(double eta,
-                                                  double eta_p,
-                                                  double tau) const;
+    std::complex<double> integration_lambda_tau(
+        double eta,
+        double eta_p,
+        double tau,
+        std::array<std::complex<double>, 5> int_arg) const;
+    std::complex<double> integration_lambda_d_tau(
+        double eta,
+        double eta_p,
+        double tau,
+        std::array<std::complex<double>, 5> int_arg) const;
 
     std::complex<double> h_f_tau(std::complex<double> omega, double tau) const;
 
@@ -60,13 +64,15 @@ struct Parameters {
     // No private member functions needed (assuming this is just a data
     // structure)
 
-    void integration_lambda_arg(double eta, double eta_p, double tau);
+    std::array<std::complex<double>, 5> integration_lambda_arg(double eta,
+                                                               double eta_p,
+                                                               double tau);
 
-    std::complex<double> lambda_f_tau_term;
-    std::complex<double> arg;
-    std::complex<double> exp_term;
-    std::complex<double> bessel_0;
-    std::complex<double> bessel_1;
+    /* std::complex<double> lambda_f_tau_term; */
+    /* std::complex<double> arg; */
+    /* std::complex<double> exp_term; */
+    /* std::complex<double> bessel_0; */
+    /* std::complex<double> bessel_1; */
 };
 
 #endif
