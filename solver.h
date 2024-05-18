@@ -17,7 +17,8 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const double& tol,
                                  Parameters& para,
                                  const Matrix<double>& coeff_matrix,
-                                 const Grid<double>& grid_info);
+                                 const Grid<double>& grid_info,
+                                 const int&);
 
 template <typename T>
 

@@ -181,9 +181,8 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const double& tol,
                                  Parameters& para,
                                  const Matrix<double>& coeff_matrix,
-                                 const Grid<double>& grid_info) {
-    int max_iter = 100;
-
+                                 const Grid<double>& grid_info,
+                                 const int& max_iter) {
     Matrix<std::complex<double>> F_lambda = F(
         para.tau, lambda,
         [&para](double eta, double eta_p, std::complex<double> omega) {

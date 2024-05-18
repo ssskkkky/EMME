@@ -82,7 +82,8 @@ int main() {
     double tol = 1e-6;
 
     auto result = NewtonTraceIterationSecantMethod(
-        omega_initial_guess, tol, para, coeff_matrix, grid_info);
+        omega_initial_guess, tol, para, coeff_matrix, grid_info,
+        para.iteration_step_limit);
 
     std::cout << "Eigenvalue: " << result.first << std::endl;
 
