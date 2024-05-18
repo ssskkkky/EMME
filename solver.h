@@ -81,21 +81,21 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
                                                    grid_info.npoints);
     Matrix<std::complex<double>> f_lambda(grid_info.npoints, grid_info.npoints);
 
-    auto& thread_pool = DedicatedThreadPool<void>::get_instance(2);
+    auto& thread_pool = DedicatedThreadPool<void>::get_instance();
     std::vector<std::future<void>> res;
 
     for (unsigned int j = 0; j < grid_info.npoints; j++) {
-        res.push_back(thread_pool.queue_task([&, j]() {
-            for (unsigned int i = 0; i < grid_info.npoints; i++) {
-                if (i == j) {
-                    quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
-                } else {
+        for (unsigned int i = 0; i < grid_info.npoints; i++) {
+            if (i == j) {
+                quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
+            } else {
+                res.push_back(thread_pool.queue_task([&, i, j]() {
                     quadrature_matrix(i, j) =
                         -func(grid_info.grid[i], grid_info.grid[j], lambda) *
                         coeff_matrix(i, j) * grid_info.dx;
-                }
+                }));
             }
-        }));
+        }
     }
     for (auto& f : res) { f.get(); }
 
