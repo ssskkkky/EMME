@@ -1,10 +1,11 @@
-#ifndef SOLVER_H  // Replace MATRIX_H with your unique guard macro name
+#ifndef SOLVER_H
 #define SOLVER_H
 
 // #include <chrono>
 #include <complex>
 #include <iostream>
 #include <vector>
+#include "DedicatedThreadPool.h"
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
@@ -76,29 +77,29 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
     // x)) for a given eigenvalue (lambda) and eigenvector (x)
     // using namespace std::chrono;
 
-    // auto beg = high_resolution_clock::now();
-
     Matrix<std::complex<double>> quadrature_matrix(grid_info.npoints,
                                                    grid_info.npoints);
     Matrix<std::complex<double>> f_lambda(grid_info.npoints, grid_info.npoints);
 
+    auto& thread_pool = DedicatedThreadPool<void>::get_instance(2);
+    std::vector<std::future<void>> res;
+
     for (unsigned int j = 0; j < grid_info.npoints; j++) {
-        for (unsigned int i = 0; i < grid_info.npoints; i++) {
-            if (i == j) {
-                quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
-            } else {
-                quadrature_matrix(i, j) =
-                    -func(grid_info.grid[i], grid_info.grid[j], lambda) *
-                    coeff_matrix(i, j) * grid_info.dx;
+        res.push_back(thread_pool.queue_task([&, j]() {
+            for (unsigned int i = 0; i < grid_info.npoints; i++) {
+                if (i == j) {
+                    quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
+                } else {
+                    quadrature_matrix(i, j) =
+                        -func(grid_info.grid[i], grid_info.grid[j], lambda) *
+                        coeff_matrix(i, j) * grid_info.dx;
+                }
             }
-        }
+        }));
     }
-
-    // auto end = high_resolution_clock::now();
-
-    // std::cout << duration<double, milliseconds::period>(end - beg).count();
+    for (auto& f : res) { f.get(); }
 
     return quadrature_matrix;
 }
 
-#endif
+#endif  // SOLVER_H
