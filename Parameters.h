@@ -1,5 +1,6 @@
 #ifndef PARAMETERS_H
 #define PARAMETERS_H
+#include <array>
 #include <complex>
 // Structure to hold simulation parameters
 struct Parameters {
@@ -53,11 +54,19 @@ struct Parameters {
 
     std::complex<double> kappa_f_tau(double eta,
                                      double eta_p,
-                                     std::complex<double>) const;
+                                     std::complex<double>);
 
    private:
     // No private member functions needed (assuming this is just a data
     // structure)
+
+    void integration_lambda_arg(double eta, double eta_p, double tau);
+
+    std::complex<double> lambda_f_tau_term;
+    std::complex<double> arg;
+    std::complex<double> exp_term;
+    std::complex<double> bessel_0;
+    std::complex<double> bessel_1;
 };
 
 #endif

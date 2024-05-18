@@ -2,7 +2,7 @@
 CXX = g++
 
 # Define C++ compiler flags (feel free to customize)
-CXXFLAGS = -Wall -std=c++17
+CXXFLAGS = -Wall -std=c++20 
 
 # Define the main executable name
 TARGET = emme
@@ -22,6 +22,9 @@ clean:
 	rm -f $(TARGET)
 
 # Default target to build the executable
-.PHONY: all clean
+.PHONY: all clean remake
 
 all: $(TARGET)
+
+remake:
+	make clean;make -j

@@ -258,6 +258,35 @@ auto bessel_ic(int i, T z, double eps = 1.e-7) {
            pi;
 }
 
+template <typename T>
+
+auto bessel_i_helper(const T& z) {
+    constexpr double THRESHOLD = 2.e+7;
+    int n = std::floor(std::abs(z)) + 1;
+    T p0(0, 0), p1(1, 0), p_tmp;
+    double test_1 = std::max(
+        std::sqrt(THRESHOLD * std::abs(p1) * std::abs(p0 - 2.0 * n / z * p1)),
+        THRESHOLD);
+
+    for (; std::abs(p1) <= test_1; ++n) {
+        p_tmp = p0 - 2.0 * n / z * p1;
+        p0 = p1;
+        p1 = p_tmp;
+    }
+
+    T y0{1.0 / p1}, y1{}, y_tmp;
+    T mu = 0.;
+    for (n--; n > 0; --n) {
+        y_tmp = 2. * n / z * y0 + y1;
+        y1 = y0;
+        y0 = y_tmp;
+        mu += 2. * (n % 2 == 0 ? 1 : -1) * (z.real() < 0 ? -1 : 1) * y1;
+    }
+
+    mu = std::exp(z.real() < 0 ? -z : z) * (mu + y0);
+    return std::array<T, 2>{y0 / mu, y1 / mu};
+}
+
 }  // namespace util
 
 #endif

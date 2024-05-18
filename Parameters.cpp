@@ -1,5 +1,6 @@
 #include "Parameters.h"
 #include <cmath>
+#include <tuple>
 #include "functions.h"
 
 Parameters::Parameters(double q_input,
@@ -50,26 +51,39 @@ std::complex<double> Parameters::lambda_f_tau(double eta,
     return 1.0 + 0.5 * std::complex<double>(0.0, 1.0) * (tau * vt) /
                      (q * R * (eta - eta_p)) * beta_1(eta, eta_p);
 }
+
+// std::array<std::complex<double>, 5>
+void Parameters::integration_lambda_arg(double eta, double eta_p, double tau) {
+    lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
+    arg = std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
+    // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
+    // std::complex<double> bessel_1 = util::bessel_ic(1, arg);
+    exp_term = std::exp(-(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau_term));
+    auto binding_bessel = util::bessel_i_helper(arg);
+    bessel_0 = binding_bessel[0];
+    bessel_1 = binding_bessel[1];
+    return;
+}
+
 std::complex<double> Parameters::integration_lambda_tau(double eta,
                                                         double eta_p,
                                                         double tau) const {
-    return 1.0 / lambda_f_tau(eta, eta_p, tau) *
-           util::bessel_ic(0, std::sqrt((bi(eta) * bi(eta_p))) /
-                                  lambda_f_tau(eta, eta_p, tau)) *
-           std::exp(-(bi(eta) + bi(eta_p)) /
-                    (2.0 * lambda_f_tau(eta, eta_p, tau)));
+    return 1.0 / lambda_f_tau_term * bessel_0 * exp_term;
 }
+
 std::complex<double> Parameters::integration_lambda_d_tau(double eta,
                                                           double eta_p,
                                                           double tau) const {
-    std::complex<double> arg =
-        std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau(eta, eta_p, tau);
-    std::complex<double> bessel_0 = util::bessel_ic(0, arg);
-    std::complex<double> bessel_1 = util::bessel_ic(1, arg);
-    std::complex<double> exp_term = std::exp(
-        -(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau(eta, eta_p, tau)));
+    // auto [arg, bessel_0, bessel_1, exp_term, lambda_f_tau_term] =
+    //     integration_lambda_arg(eta, eta_p, tau);
+    // std::complex<double> arg =
+    //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau(eta, eta_p, tau);
+    // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
+    // std::complex<double> bessel_1 = util::bessel_ic(1, arg);
+    // std::complex<double> exp_term = std::exp(
+    //     -(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau(eta, eta_p, tau)));
 
-    std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
+    // std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
 
     std::complex<double> term1 = -exp_term * bessel_1 *
                                  std::sqrt(bi(eta) * bi(eta_p)) /
@@ -88,13 +102,16 @@ std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
 
 std::complex<double> Parameters::kappa_f_tau(double eta,
                                              double eta_p,
-                                             std::complex<double> omega) const
+                                             std::complex<double> omega)
 
 {
     // Define the integrand function
     auto integrand = [&](double taut) {
         // std::complex<double> arg =
         //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_taut(eta, eta_p, taut);
+
+        integration_lambda_arg(eta, eta_p, taut);
+
         std::complex<double> term1 =
             (omega -
              omega_s_i *
@@ -117,7 +134,7 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
     // Perform numerical integration
     double lower_bound = 0.0;
     double upper_bound =
-        40.0 * M_PI / vt;  // Assuming your integration limits are 0 and 4*pi/vt
+        10.0 * M_PI / vt;  // Assuming your integration limits are 0 and 4*pi/vt
     double tol = 1e-5;
     int max_iterations =
         10;  // Adjust as needed for your integration accuracy requirements

@@ -1,6 +1,7 @@
 #ifndef SOLVER_H  // Replace MATRIX_H with your unique guard macro name
 #define SOLVER_H
 
+// #include <chrono>
 #include <complex>
 #include <iostream>
 #include <vector>
@@ -14,7 +15,7 @@ NewtonTraceIteration(std::complex<double> lambda, double tol);
 std::pair<std::complex<double>, Matrix<std::complex<double>>>
 NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const double& tol,
-                                 const Parameters& para,
+                                 Parameters& para,
                                  const Matrix<double>& coeff_matrix,
                                  const Grid<double>& grid_info);
 
@@ -72,6 +73,9 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
     // Implement the NLEP function here
     // This function should return a vector representing the residual (F(lambda,
     // x)) for a given eigenvalue (lambda) and eigenvector (x)
+    // using namespace std::chrono;
+
+    // auto beg = high_resolution_clock::now();
 
     Matrix<std::complex<double>> quadrature_matrix(grid_info.npoints,
                                                    grid_info.npoints);
@@ -88,6 +92,10 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
             }
         }
     }
+
+    // auto end = high_resolution_clock::now();
+
+    // std::cout << duration<double, milliseconds::period>(end - beg).count();
 
     return quadrature_matrix;
 }

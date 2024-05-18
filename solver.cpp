@@ -179,7 +179,7 @@ std::vector<std::complex<double>> LUSolveLinearSystem(
 std::pair<std::complex<double>, Matrix<std::complex<double>>>
 NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const double& tol,
-                                 const Parameters& para,
+                                 Parameters& para,
                                  const Matrix<double>& coeff_matrix,
                                  const Grid<double>& grid_info) {
     int max_iter = 100;
@@ -190,6 +190,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
             return para.kappa_f_tau(eta, eta_p, omega);
         },
         coeff_matrix, grid_info);
+
     Matrix<std::complex<double>> F_old_lambda = F_lambda;
     Matrix<std::complex<double>> linear_solution_matrix(F_lambda.getRows(),
                                                         F_lambda.getCols());
