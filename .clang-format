@@ -4,5 +4,6 @@
     "ColumnLimit": "80",
     "AllowShortIfStatementsOnASingleLine": "true",
     "AllowShortBlocksOnASingleLine":"Always",
-    "AllowShortLoopsOnASingleLine":"true"
+    "AllowShortLoopsOnASingleLine":"true",
+    "IncludeBlocks": "Regroup"
 }
