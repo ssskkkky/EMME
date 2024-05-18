@@ -26,10 +26,13 @@ int main() {
     double theta_input;
     int npoints_input;
     int iteration_step_limit_input;
+    double initial_guess_real;
+    double initial_guess_imag;
 
     input_file >> q_input >> shat_input >> tau_input >> epsilon_n_input >>
         eta_i_input >> b_theta_input >> R_input >> vt_input >> length_input >>
-        theta_input >> npoints_input >> iteration_step_limit_input;
+        theta_input >> npoints_input >> iteration_step_limit_input >>
+        initial_guess_real >> initial_guess_imag;
 
     input_file.close();
 
@@ -45,7 +48,8 @@ int main() {
     //                 length_input, theta_input, npoints_input,
     //                 iteration_step_limit_input);
 
-    std::complex<double> omega_initial_guess(1.0, 1.0);
+    std::complex<double> omega_initial_guess(initial_guess_real,
+                                             initial_guess_imag);
 
     Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
                     eta_i_input, b_theta_input, R_input, vt_input, length_input,
@@ -74,13 +78,11 @@ int main() {
 
     // output(filename);
 
-    std::complex<double> lambda0 = {-1.4, 0.1};
-
     // Set the tolerance for convergence
     double tol = 1e-6;
 
-    auto result = NewtonTraceIterationSecantMethod(lambda0, tol, para,
-                                                   coeff_matrix, grid_info);
+    auto result = NewtonTraceIterationSecantMethod(
+        omega_initial_guess, tol, para, coeff_matrix, grid_info);
 
     std::cout << "Eigenvalue: " << result.first << std::endl;
 
