@@ -1,12 +1,13 @@
 # Define the compiler
 CXX = g++
 
+LAPACK_INCLUDE = $(shell pkg-config lapack --cflags)
+BLASLAPCK_LIBS = $(shell pkg-config lapack --libs) $(shell pkg-config blas --libs)
+
 # Define C++ compiler flags (feel free to customize)
 CXXFLAGS = -Wall -std=c++20 -O2
 
-# LD_FLAGS = -L./deps/lapack/lib -llapack -lblas -Wl,-v
-LD_FLAGS =  $(shell pkg-config lapack --libs) $(shell pkg-config blas --libs) -lgfortran
-# STATIC_LIBS = ./deps/lapack/lib/liblapack.a ./deps/lapack/lib/libblas.a 
+LD_FLAGS = $(BLASLAPCK_LIBS) -lgfortran
 
 # Define the main executable name
 TARGET = emme
@@ -24,7 +25,7 @@ $(TARGET): $(OBJS) $(HDRS)
 	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) 
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(shell pkg-config lapack --cflags) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(LAPACK_INCLUDE) -c $< -o $@
 
 # Clean the project (removes the executable)
 clean:
