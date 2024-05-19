@@ -1,4 +1,4 @@
-#ifndef MATRIX_H  // Replace MATRIX_H with your unique guard macro name
+#ifndef MATRIX_H
 #define MATRIX_H
 
 #include <complex>
@@ -9,103 +9,95 @@
 template <typename T>
 class Matrix {
    public:
-    // Constructor with dimensions
-    Matrix(int rows, int cols) : rows_(rows), cols_(cols) {
-        data_ = std::vector<T>(rows * cols);
-    }
+    using size_type = std::size_t;
+    using value_type = T;
+    using matrix_type = Matrix<value_type>;
 
-    const T* begin() const { return data_.data(); }
-    const T* end() const { return data_.data() + data_.size(); }
+    // Constructor with dimensions
+    Matrix(size_type rows, size_type cols)
+        : rows_(rows), cols_(cols), data_(rows * cols) {}
+
+    auto begin() const noexcept { return data_.begin(); }
+    auto end() const noexcept { return data_.end(); }
 
     // Access element at (row, col)
-    T& operator()(unsigned int row, unsigned int col) {
+    value_type& operator()(size_type row, size_type col) {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
+#endif
         return data_[row * cols_ + col];
     }
 
-    const T& operator()(unsigned int row, unsigned int col) const {
+    const value_type& operator()(size_type row, size_type col) const {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
+#endif
         return data_[row * cols_ + col];
     }
 
     // Function to perform matrix subtraction
-    Matrix<T> operator-(const Matrix<T>& other) const {
+    matrix_type& operator-=(const Matrix<T>& other) {
+#ifdef EMME_DEBUG
         // Check if dimensions are compatible
         if (rows_ != other.rows_ || cols_ != other.cols_) {
             throw std::invalid_argument(
                 "Matrices must have the same dimensions for subtraction.");
         }
-
-        // Create a result matrix with the same dimensions
-        Matrix<T> result(rows_, cols_);
+#endif
 
         // Subtract corresponding elements from each matrix
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) =
-                    data_[i * cols_ + j] - other.data_[i * cols_ + j];
-            }
+        for (size_type i = 0; i < data_.size(); ++i) {
+            data_[i] -= other.data_[i];
         }
 
-        return result;
+        return *this;
+    }
+
+    friend matrix_type operator-(matrix_type a, const matrix_type& b) {
+        a -= b;
+        return a;
     }
 
     // Function to perform division of the matrix by a scalar
-    Matrix<T> operator/(const T& scalar) const {
+    matrix_type& operator/=(const T& scalar) {
+#ifdef EMME_DEBUG
         // Check for division by zero
         if (scalar.real() == 0 && scalar.imag() == 0) {
             throw std::invalid_argument("Division by zero is not allowed.");
         }
-
-        // Create a result matrix with the same dimensions
-        Matrix<T> result(rows_, cols_);
-
+#endif
         // Divide each element by the scalar
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) = data_[i * cols_ + j] / scalar;
-            }
-        }
-
-        return result;
+        for (auto& v : data_) { v /= scalar; }
+        return *this;
     }
 
-    // Element-wise matrix multiplication (overloaded operator *)
-    Matrix<T> operator*(const Matrix<T>& other) const {
-        if (rows_ != other.rows_ || cols_ != other.cols_) {
-            throw std::invalid_argument(
-                "Matrices must have the same dimensions for element-wise "
-                "multiplication");
-        }
-        Matrix<T> result(rows_, cols_);
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) = (*this)(i, j) * other(i, j);
-            }
-        }
-        return result;
+    friend matrix_type operator/(matrix_type m, const value_type& a) {
+        m /= a;
+        return m;
     }
 
     // Get number of rows
-    int getRows() const { return rows_; }
+    size_type getRows() const {
+        return rows_;
+    }
 
     // Get number of columns
-    int getCols() const { return cols_; }
+    size_type getCols() const {
+        return cols_;
+    }
 
     // Get a reference to a specific column
-    const std::vector<T> getCol(unsigned int col) const {
+    const std::vector<T> getCol(size_type col) const {
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
 
         std::vector<T> col_view(rows_);
-        for (unsigned int i = 0; i < rows_; ++i) {
-            col_view[i] = (*this)(i, col);
-        }
+        for (size_type i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
         return col_view;
     }
 
@@ -133,7 +125,7 @@ class Matrix {
     }
 
     // Assign values to a specific column
-    void setCol(unsigned int col, const std::vector<T>& new_col) {
+    void setCol(size_type col, const std::vector<T>& new_col) {
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
@@ -141,9 +133,7 @@ class Matrix {
             throw std::invalid_argument("Column size mismatch");
         }
 
-        for (unsigned int i = 0; i < rows_; ++i) {
-            (*this)(i, col) = new_col[i];
-        }
+        for (size_type i = 0; i < rows_; ++i) { (*this)(i, col) = new_col[i]; }
     }
 
     // Assign values to a specific row
@@ -159,14 +149,14 @@ class Matrix {
     }
 
     // Calculate the trace of the matrix
-    T trace() const {
+    value_type trace() const {
         if (rows_ != cols_) {
             throw std::invalid_argument(
                 "Matrix must be square for trace calculation");
         }
 
-        T sum = 0.0;
-        for (unsigned int i = 0; i < rows_; ++i) {
+        value_type sum{};
+        for (size_type i = 0; i < rows_; ++i) {
             sum += (*this)(i, i);  // Access diagonal element using (i, i)
         }
         return sum;
@@ -221,10 +211,14 @@ class Matrix {
         return std::make_tuple(L, U, perm);
     }
 
+    auto data() {
+        return data_.data();
+    }
+
    private:
-    unsigned int rows_;
-    unsigned int cols_;
-    std::vector<T> data_;
+    size_type rows_;
+    size_type cols_;
+    std::vector<value_type> data_;
 };
 
 #endif
