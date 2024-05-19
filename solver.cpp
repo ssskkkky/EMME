@@ -1,4 +1,3 @@
-#include "solver.h"
 #include <complex>
 #include <iostream>
 #include <vector>
@@ -6,6 +5,7 @@
 #include "Matrix.h"
 #include "Parameters.h"
 #include "functions.h"
+#include "solver.h"
 
 // Jacobian of F(lambda)
 Matrix<std::complex<double>> Jacobian(std::complex<double> lambda) {
@@ -238,35 +238,3 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
 
     return {lambda, F_lambda};
 }
-
-// int main() {
-//     // Define the initial guess for the eigenvector (lambda0)
-//     std::complex<double> lambda0 = 2.4;
-
-//     // Set the tolerance for convergence
-//     double tol = 1e-6;
-
-//     // try {
-//     std::pair<std::complex<double>, Matrix<std::complex<double>>> result =
-//         NewtonTraceIterationSecantMethod(lambda0, tol);
-
-//     // Print the resulting eigenvalue and (normalized) eigenvector
-//     // std::complex<double> norm = 0.0;
-//     // for (const auto& val : result.second) { norm += std::norm(val); }
-
-//     std::cout << "Eigenvalue: " << result.first << std::endl;
-
-//     // for (const auto& val : result.second) { std::cout << val << " "; }
-//     // std::cout << std::endl;
-//     // Matrix<std::complex<double>> test(2, 2);
-//     // test.setRow(0, {{1.0, 0.5}, {2.0, 0.1}});
-//     // test.setRow(1, {{1.3, 0.2}, {2.0, 0.3}});
-
-//     // for (const auto& val : result.second - test) { std::cout << val << "
-//     "; }
-//     // std::cout << std::endl;
-
-//     // };
-
-//     return 0;
-// }
