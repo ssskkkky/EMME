@@ -90,74 +90,68 @@ class Matrix {
         return cols_;
     }
 
-    // Get a reference to a specific column
+    // Get a specific column
     const std::vector<T> getCol(size_type col) const {
+#ifdef EMME_DEBUG
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
-
+#endif
         std::vector<T> col_view(rows_);
         for (size_type i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
         return col_view;
     }
 
-    // // Get a reference to a specific column
-    // std::vector<T>& getCol(int col) {
-    //     if (col < 0 || col >= cols_) {
-    //         throw std::out_of_range("Matrix column index out of bounds");
-    //     }
-
-    //     std::vector<T> col_view(rows_);
-    //     for (int i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
-    //     return col_view;
-    // }
-
-    // Get a reference to a specific row
-    const std::vector<T>& getRow(int row) const {
+    // Get a specific row
+    const std::vector<T> getRow(int row) const {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
         }
-
-        // Return a reference to a sub-vector of the data_ vector starting at
-        // row*cols_
+#endif
         return std::vector<T>(data_.begin() + row * cols_,
                               data_.begin() + (row + 1) * cols_);
     }
 
     // Assign values to a specific column
-    void setCol(size_type col, const std::vector<T>& new_col) {
+    void setCol(size_type col, const std::vector<value_type>& new_col) {
+#ifdef EMME_DEBUG
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
         if (new_col.size() != rows_) {
             throw std::invalid_argument("Column size mismatch");
         }
-
-        for (size_type i = 0; i < rows_; ++i) { (*this)(i, col) = new_col[i]; }
+#endif
+        for (size_type i = 0; i < rows_; ++i) {
+            operator()(i, col) = new_col[i];
+        }
     }
 
     // Assign values to a specific row
-    void setRow(int row, const std::vector<T>& new_row) {
+    void setRow(int row, const std::vector<value_type>& new_row) {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
         }
         if (new_row.size() != cols_) {
             throw std::invalid_argument("Row size mismatch");
         }
-
+#endif
         std::copy(new_row.begin(), new_row.end(), data_.begin() + row * cols_);
     }
 
     // Calculate the trace of the matrix
     value_type trace() const {
+#ifdef EMME_DEBUG
         if (rows_ != cols_) {
             throw std::invalid_argument(
                 "Matrix must be square for trace calculation");
         }
-
+#endif
         value_type sum{};
         for (size_type i = 0; i < rows_; ++i) {
-            sum += (*this)(i, i);  // Access diagonal element using (i, i)
+            sum += operator()(i, i);  // Access diagonal element using (i, i)
         }
         return sum;
     }
