@@ -1,4 +1,3 @@
-
 #define lapack_complex_float std::complex<float>
 #define lapack_complex_double std::complex<double>
 
@@ -6,11 +5,11 @@
 #include <iostream>
 #include <vector>
 
-#include "./deps/lapack/include/lapack.h"
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
 #include "functions.h"
+#include "lapack.h"
 #include "solver.h"
 
 // Jacobian of F(lambda)
@@ -225,6 +224,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
 
         if (optimal_work_length > work_length) {
             work_length = optimal_work_length;
+            work.resize(work_length);
         }
 
         F_old_lambda = F_lambda;  // store the previous lambda matrix
@@ -240,6 +240,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                              "block diagonal matrix D is exactly singular at "
                           << i << ", so the solution could not be computed.";
             }
+            throw std::runtime_error("Linear solve failed");
         }
 
         // Update eigenvalue and eigenvector
@@ -263,35 +264,3 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
 
     return {lambda, F_old_lambda};
 }
-
-// int main() {
-//     // Define the initial guess for the eigenvector (lambda0)
-//     std::complex<double> lambda0 = 2.4;
-
-//     // Set the tolerance for convergence
-//     double tol = 1e-6;
-
-//     // try {
-//     std::pair<std::complex<double>, Matrix<std::complex<double>>> result =
-//         NewtonTraceIterationSecantMethod(lambda0, tol);
-
-//     // Print the resulting eigenvalue and (normalized) eigenvector
-//     // std::complex<double> norm = 0.0;
-//     // for (const auto& val : result.second) { norm += std::norm(val); }
-
-//     std::cout << "Eigenvalue: " << result.first << std::endl;
-
-//     // for (const auto& val : result.second) { std::cout << val << " "; }
-//     // std::cout << std::endl;
-//     // Matrix<std::complex<double>> test(2, 2);
-//     // test.setRow(0, {{1.0, 0.5}, {2.0, 0.1}});
-//     // test.setRow(1, {{1.3, 0.2}, {2.0, 0.3}});
-
-//     // for (const auto& val : result.second - test) { std::cout << val << "
-//     "; }
-//     // std::cout << std::endl;
-
-//     // };
-
-//     return 0;
-// }
