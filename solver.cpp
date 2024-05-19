@@ -1,6 +1,8 @@
 #define lapack_complex_float std::complex<float>
 #define lapack_complex_double std::complex<double>
 
+#include "solver.h"
+
 #include <complex>
 #include <iostream>
 #include <vector>
@@ -10,7 +12,6 @@
 #include "Parameters.h"
 #include "functions.h"
 #include "lapack.h"
-#include "solver.h"
 
 // Jacobian of F(lambda)
 Matrix<std::complex<double>> Jacobian(std::complex<double> lambda) {
@@ -189,22 +190,28 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const Grid<double>& grid_info,
                                  const int& max_iter) {
     Matrix<std::complex<double>> F_lambda = F(
-        para.tau, lambda,
-        [&para](double eta, double eta_p, std::complex<double> omega) {
-            return para.kappa_f_tau(eta, eta_p, omega);
+        para.tau, para.beta_e, lambda,
+        [&para](unsigned i, double eta, double eta_p,
+                std::complex<double> omega) {
+            return para.kappa_f_tau(i, eta, eta_p, omega) +
+                   para.kappa_f_tau_e(i, eta, eta_p, omega);
         },
-        coeff_matrix, grid_info);
+        [&para](double eta) { return para.bi(eta); }, coeff_matrix, grid_info);
 
     Matrix<std::complex<double>> F_old_lambda = F_lambda;
 
     Matrix<std::complex<double>> J_lambda =
-        (F_lambda -
-         F(
-             para.tau, lambda * 0.99,
-             [&para](double eta, double eta_p, std::complex<double> omega) {
-                 return para.kappa_f_tau(eta, eta_p, omega);
-             },
-             coeff_matrix, grid_info)) /
+        (F_lambda - F(
+                        para.tau, para.beta_e, 0.99 * lambda,
+                        [&para](unsigned i, double eta, double eta_p,
+                                std::complex<double> omega) {
+                            return para.kappa_f_tau(i, eta, eta_p, omega) +
+                                   para.kappa_f_tau_e(i, eta, eta_p, omega);
+                        },
+                        [&para](double eta) { return para.bi(eta); },
+                        coeff_matrix, grid_info)
+
+             ) /
         (0.01 * lambda);
 
     const char* upper = "Upper";
@@ -254,11 +261,15 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
         }
 
         F_lambda = F(
-            para.tau, lambda,
-            [&para](double eta, double eta_p, std::complex<double> omega) {
-                return para.kappa_f_tau(eta, eta_p, omega);
+            para.tau, para.beta_e, lambda,
+            [&para](unsigned i, double eta, double eta_p,
+                    std::complex<double> omega) {
+                return para.kappa_f_tau(i, eta, eta_p, omega) +
+                       para.kappa_f_tau_e(i, eta, eta_p, omega);
             },
-            coeff_matrix, grid_info);
+            [&para](double eta) { return para.bi(eta); }, coeff_matrix,
+            grid_info);
+
         J_lambda = (F_old_lambda - F_lambda) / (d_lambda);
     }
 

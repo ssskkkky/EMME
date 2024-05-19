@@ -12,6 +12,7 @@ struct Parameters {
                double epsilon_n_input,
                double eta_i_input,
                double b_theta_input,
+               double beta_e_input,
                double R_input,
                double vt_input,
                double length_input,
@@ -25,9 +26,12 @@ struct Parameters {
     double tau;
     double epsilon_n;
     double eta_i;
+    double eta_e;
     double b_theta;
+    double beta_e;
     double R;
     double vt;
+    double alpha;
     double length;
     double theta;
     int npoints;
@@ -35,9 +39,11 @@ struct Parameters {
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor
+    double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
     double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;
+    double beta_1_e(double eta, double eta_p) const;
     double bi(double eta) const;
 
     std::complex<double> lambda_f_tau(double eta,
@@ -56,9 +62,15 @@ struct Parameters {
 
     std::complex<double> h_f_tau(std::complex<double> omega, double tau) const;
 
-    std::complex<double> kappa_f_tau(double eta,
+    std::complex<double> kappa_f_tau(unsigned int m,
+                                     double eta,
                                      double eta_p,
                                      std::complex<double>);
+
+    std::complex<double> kappa_f_tau_e(unsigned int m,
+                                       double eta,
+                                       double eta_p,
+                                       std::complex<double>);
 
    private:
     // No private member functions needed (assuming this is just a data

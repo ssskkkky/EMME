@@ -5,6 +5,7 @@
 #include <complex>
 #include <iostream>
 #include <vector>
+
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
 #include "Matrix.h"
@@ -66,10 +67,12 @@ Matrix<T> nullSpace(const Matrix<T>& A) {
 
 // Function representing the nonlinear eigenvalue problem (NLEP)
 // F(lambda, x) = 0
-template <typename Func>
+template <typename Func, typename Funcb>
 Matrix<std::complex<double>> F(const std::complex<double>& tau,
+                               const std::complex<double>& beta_e,
                                const std::complex<double>& lambda,
-                               const Func& func,
+                               const Func& kappa_f_tau_all,
+                               const Funcb& bi,
                                const Matrix<double>& coeff_matrix,
                                const Grid<double>& grid_info) {
     // Implement the NLEP function here
@@ -77,8 +80,8 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
     // x)) for a given eigenvalue (lambda) and eigenvector (x)
     // using namespace std::chrono;
 
-    Matrix<std::complex<double>> quadrature_matrix(grid_info.npoints,
-                                                   grid_info.npoints);
+    Matrix<std::complex<double>> quadrature_matrix(2 * grid_info.npoints,
+                                                   2 * grid_info.npoints);
     Matrix<std::complex<double>> f_lambda(grid_info.npoints, grid_info.npoints);
 
     auto& thread_pool = DedicatedThreadPool<void>::get_instance();
@@ -88,11 +91,30 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
         for (unsigned int i = 0; i < grid_info.npoints; i++) {
             if (i == j) {
                 quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
+                quadrature_matrix(i, j + grid_info.npoints) = 0.0;
+                quadrature_matrix(i + grid_info.npoints, j) = 0.0;
+                quadrature_matrix(i + grid_info.npoints,
+                                  j + grid_info.npoints) =
+                    (2.0 * tau) / beta_e * bi(grid_info.grid[i]);
             } else {
                 res.push_back(thread_pool.queue_task([&, i, j]() {
                     quadrature_matrix(i, j) =
-                        -func(grid_info.grid[i], grid_info.grid[j], lambda) *
+                        -kappa_f_tau_all(0, grid_info.grid[i],
+                                         grid_info.grid[j], lambda) *
                         coeff_matrix(i, j) * grid_info.dx;
+                    quadrature_matrix(i, j + grid_info.npoints) =
+                        kappa_f_tau_all(1, grid_info.grid[i], grid_info.grid[j],
+                                        lambda) *
+                        grid_info.dx;
+                    quadrature_matrix(i + grid_info.npoints, j) =
+                        -kappa_f_tau_all(1, grid_info.grid[i],
+                                         grid_info.grid[j], lambda) *
+                        grid_info.dx;
+                    quadrature_matrix(i + grid_info.npoints,
+                                      j + grid_info.npoints) =
+                        kappa_f_tau_all(2, grid_info.grid[i], grid_info.grid[j],
+                                        lambda) *
+                        grid_info.dx;
                 }));
             }
         }

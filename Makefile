@@ -1,4 +1,6 @@
 # Define the compiler
+
+DEBUGFLAGS =
 CXX = g++
 
 LAPACK_INCLUDE = $(shell pkg-config lapack --cflags)
@@ -22,10 +24,10 @@ HDRS = *.h
 
 # Build the executable
 $(TARGET): $(OBJS) $(HDRS)
-	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) 
+	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) $(DEBUGFLAGS) 
 
 %.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(LAPACK_INCLUDE) -c $< -o $@
+	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS)  $(LAPACK_INCLUDE) -c $< -o $@
 
 # Clean the project (removes the executable)
 clean:

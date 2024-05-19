@@ -20,6 +20,7 @@ int main() {
     double epsilon_n_input;
     double eta_i_input;
     double b_theta_input;
+    double beta_e_input;
     double R_input;
     double vt_input;
     double length_input;
@@ -30,9 +31,9 @@ int main() {
     double initial_guess_imag;
 
     input_file >> q_input >> shat_input >> tau_input >> epsilon_n_input >>
-        eta_i_input >> b_theta_input >> R_input >> vt_input >> length_input >>
-        theta_input >> npoints_input >> iteration_step_limit_input >>
-        initial_guess_real >> initial_guess_imag;
+        eta_i_input >> b_theta_input >> beta_e_input >> R_input >> vt_input >>
+        length_input >> theta_input >> npoints_input >>
+        iteration_step_limit_input >> initial_guess_real >> initial_guess_imag;
 
     input_file.close();
 
@@ -52,8 +53,9 @@ int main() {
                                              initial_guess_imag);
 
     Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
-                    eta_i_input, b_theta_input, R_input, vt_input, length_input,
-                    theta_input, npoints_input, iteration_step_limit_input);
+                    eta_i_input, b_theta_input, beta_e_input, R_input, vt_input,
+                    length_input, theta_input, npoints_input,
+                    iteration_step_limit_input);
 
     auto length = para.length;
     auto npoints = para.npoints;
