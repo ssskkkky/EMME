@@ -88,7 +88,7 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
     std::vector<std::future<void>> res;
 
     for (unsigned int j = 0; j < grid_info.npoints; j++) {
-        for (unsigned int i = 0; i < grid_info.npoints; i++) {
+        for (unsigned int i = j; i < grid_info.npoints; i++) {
             if (i == j) {
                 quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
                 quadrature_matrix(i, j + grid_info.npoints) = 0.0;
@@ -106,15 +106,35 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
                         kappa_f_tau_all(1, grid_info.grid[i], grid_info.grid[j],
                                         lambda) *
                         grid_info.dx;
-                    quadrature_matrix(i + grid_info.npoints, j) =
-                        -kappa_f_tau_all(1, grid_info.grid[i],
-                                         grid_info.grid[j], lambda) *
-                        grid_info.dx;
+
+                    // quadrature_matrix(i + grid_info.npoints, j) =
+                    //     -kappa_f_tau_all(1, grid_info.grid[i],
+                    //                      grid_info.grid[j], lambda) *
+                    //     grid_info.dx;
                     quadrature_matrix(i + grid_info.npoints,
                                       j + grid_info.npoints) =
                         kappa_f_tau_all(2, grid_info.grid[i], grid_info.grid[j],
                                         lambda) *
                         grid_info.dx;
+
+                    quadrature_matrix(j, i) = quadrature_matrix(i, j);
+
+                    quadrature_matrix(j, i + grid_info.npoints) =
+                        -quadrature_matrix(i, j + grid_info.npoints);
+                    // quadrature_matrix(i + grid_info.npoints, j) =
+                    //     -kappa_f_tau_all(1, grid_info.grid[i],
+                    //                      grid_info.grid[j], lambda) *
+                    //     grid_info.dx;
+                    quadrature_matrix(j + grid_info.npoints,
+                                      i + grid_info.npoints) =
+                        quadrature_matrix(j + grid_info.npoints,
+                                          i + grid_info.npoints);
+
+                    quadrature_matrix(i + grid_info.npoints, j) =
+                        quadrature_matrix(j, i + grid_info.npoints);
+
+                    quadrature_matrix(j + grid_info.npoints, i) =
+                        quadrature_matrix(i, j + grid_info.npoints);
                 }));
             }
         }

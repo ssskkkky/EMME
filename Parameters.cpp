@@ -154,12 +154,12 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
 
     // Perform numerical integration
     double lower_bound = 0.0;
-    double upper_bound =
-        10.0 * M_PI /
-        vt;  // Assuming your integration limits are 0 and 10*pi/vt
+    double upper_bound = std::numeric_limits<double>::infinity();
+    // 10.0 * M_PI /
+    // vt;  // Assuming your integration limits are 0 and 10*pi/vt
     double tol = 1e-5;
     int max_iterations =
-        10;  // Adjust as needed for your integration accuracy requirements
+        5;  // Adjust as needed for your integration accuracy requirements
 
     auto result = util::integrate(integrand, lower_bound, upper_bound, tol,
                                   max_iterations);
