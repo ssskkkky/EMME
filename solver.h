@@ -87,8 +87,8 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
     auto& thread_pool = DedicatedThreadPool<void>::get_instance();
     std::vector<std::future<void>> res;
 
-    for (unsigned int j = 0; j < grid_info.npoints; j++) {
-        for (unsigned int i = j; i < grid_info.npoints; i++) {
+    for (unsigned int i = 0; i < grid_info.npoints; i++) {
+        for (unsigned int j = i; j < grid_info.npoints; j++) {
             if (i == j) {
                 quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
                 quadrature_matrix(i, j + grid_info.npoints) = 0.0;
