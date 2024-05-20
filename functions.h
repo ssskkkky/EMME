@@ -217,7 +217,8 @@ auto integrate(const Func& func,
     using n_type = typename std::common_type<numeric_t<Ta>, numeric_t<Tb>,
                                              numeric_t<Te>>::type;
     using impl = detail::gauss_kronrod<15, n_type>;
-    if (b + 1 == b) {
+    if (std::fpclassify(a) == FP_INFINITE ||
+        std::fpclassify(b) == FP_INFINITE) {
         // b is infinity
         return impl::gauss_kronrod_adaptive(
             [&](n_type x) {
