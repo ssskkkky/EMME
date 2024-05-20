@@ -127,8 +127,8 @@ Matrix<std::complex<double>> F(const std::complex<double>& tau,
                     //     grid_info.dx;
                     quadrature_matrix(j + grid_info.npoints,
                                       i + grid_info.npoints) =
-                        quadrature_matrix(j + grid_info.npoints,
-                                          i + grid_info.npoints);
+                        quadrature_matrix(i + grid_info.npoints,
+                                          j + grid_info.npoints);
 
                     quadrature_matrix(i + grid_info.npoints, j) =
                         quadrature_matrix(j, i + grid_info.npoints);
