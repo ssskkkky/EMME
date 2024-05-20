@@ -242,6 +242,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
             }
             throw std::runtime_error("Linear solve failed");
         }
+        optimal_work_length = work[0].real();
 
         // Update eigenvalue and eigenvector
         auto d_lambda = 1.0 / J_lambda.trace();
