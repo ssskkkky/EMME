@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <complex>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -238,32 +239,13 @@ auto integrate_coarse(const Func& func,
     return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide, Tx{}, tol);
 }
 
-/**
- * @brief Modified Bessel function of the first kind with integer order and
- * complex argument. The evaluation is done using contour integral.
- *
- * @param i order
- * @param z argument
- * @param eps accuracy, default to be 1e-7
- */
 template <typename T>
-auto bessel_ic(int i, T z, double eps = 1.e-7) {
-    using f_type = get_float_t<T>;
-    constexpr auto pi = static_cast<f_type>(M_PI);
-    return integrate(
-               [=](f_type theta) {
-                   return std::exp(z * std::cos(theta)) * std::cos(i * theta);
-               },
-               0, pi, static_cast<f_type>(eps)) /
-           pi;
-}
-
-template <typename T>
-
 auto bessel_i_helper(const T& z) {
     constexpr double THRESHOLD = 2.e+7;
     int n = std::floor(std::abs(z)) + 1;
-    T p0(0, 0), p1(1, 0), p_tmp;
+    T p0 = 0.;
+    T p1 = 1.;
+    T p_tmp{};
     double test_1 = std::max(
         std::sqrt(THRESHOLD * std::abs(p1) * std::abs(p0 - 2.0 * n / z * p1)),
         THRESHOLD);
@@ -280,10 +262,10 @@ auto bessel_i_helper(const T& z) {
         y_tmp = 2. * n / z * y0 + y1;
         y1 = y0;
         y0 = y_tmp;
-        mu += 2. * (n % 2 == 0 ? 1 : -1) * (z.real() < 0 ? -1 : 1) * y1;
+        mu += 2. * (n % 2 == 0 ? 1 : -1) * (std::real(z) < 0 ? -1 : 1) * y1;
     }
 
-    mu = std::exp(z.real() < 0 ? -z : z) * (mu + y0);
+    mu = std::exp(std::real(z) < 0 ? -z : z) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
 
