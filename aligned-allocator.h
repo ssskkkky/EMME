@@ -45,7 +45,7 @@ static inline void deallocate_aligned_memory(void* ptr) noexcept {
 }
 }  // namespace detail
 
-template <typename T, Alignment Align = Alignment::AVX>
+template <typename T, Alignment Align = Alignment::OCTU>
 class AlignedAllocator;
 
 template <Alignment Align>

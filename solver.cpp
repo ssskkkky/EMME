@@ -181,37 +181,36 @@ std::vector<std::complex<double>> LUSolveLinearSystem(
 // }
 
 // Newton trace iteration for NLEP
-std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIterationSecantMethod(std::complex<double> lambda,
-                                 const double& tol,
-                                 Parameters& para,
-                                 const Matrix<double>& coeff_matrix,
-                                 const Grid<double>& grid_info,
-                                 const int& max_iter) {
-    Matrix<std::complex<double>> F_lambda = F(
+std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
+    value_type lambda,
+    const double& tol,
+    Parameters& para,
+    const Matrix<double>& coeff_matrix,
+    const Grid<double>& grid_info,
+    const int& max_iter) {
+    matrix_type F_lambda = F(
         para.tau, lambda,
-        [&para](double eta, double eta_p, std::complex<double> omega) {
+        [&para](double eta, double eta_p, value_type omega) {
             return para.kappa_f_tau(eta, eta_p, omega);
         },
         coeff_matrix, grid_info);
 
-    Matrix<std::complex<double>> F_old_lambda = F_lambda;
+    matrix_type F_old_lambda = F_lambda;
 
-    Matrix<std::complex<double>> J_lambda =
-        (F_lambda -
-         F(
-             para.tau, lambda * 0.99,
-             [&para](double eta, double eta_p, std::complex<double> omega) {
-                 return para.kappa_f_tau(eta, eta_p, omega);
-             },
-             coeff_matrix, grid_info)) /
+    matrix_type J_lambda =
+        (F_lambda - F(
+                        para.tau, lambda * 0.99,
+                        [&para](double eta, double eta_p, value_type omega) {
+                            return para.kappa_f_tau(eta, eta_p, omega);
+                        },
+                        coeff_matrix, grid_info)) /
         (0.01 * lambda);
 
     const char* upper = "Upper";
     const lapack_int dim = F_lambda.getRows();
     lapack_int work_length = dim;
     lapack_int optimal_work_length{};
-    std::vector<std::complex<double>> work(work_length);
+    std::vector<value_type> work(work_length);
     std::vector<lapack_int> ipiv(dim);
     lapack_int info{};
     for (int i = 0; i < max_iter; ++i) {
@@ -256,7 +255,7 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
 
         F_lambda = F(
             para.tau, lambda,
-            [&para](double eta, double eta_p, std::complex<double> omega) {
+            [&para](double eta, double eta_p, value_type omega) {
                 return para.kappa_f_tau(eta, eta_p, omega);
             },
             coeff_matrix, grid_info);

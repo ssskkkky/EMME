@@ -6,12 +6,13 @@
 #include <tuple>
 #include <vector>
 
-template <typename T>
+template <typename T, typename A = std::allocator<T>>
 class Matrix {
    public:
     using size_type = std::size_t;
     using value_type = T;
-    using matrix_type = Matrix<value_type>;
+    using allocator_type = A;
+    using matrix_type = Matrix<value_type, allocator_type>;
 
     // Constructor with dimensions
     Matrix(size_type rows, size_type cols)
@@ -40,7 +41,7 @@ class Matrix {
     }
 
     // Function to perform matrix subtraction
-    matrix_type& operator-=(const Matrix<T>& other) {
+    matrix_type& operator-=(const matrix_type& other) {
 #ifdef EMME_DEBUG
         // Check if dimensions are compatible
         if (rows_ != other.rows_ || cols_ != other.cols_) {
@@ -212,7 +213,7 @@ class Matrix {
    private:
     size_type rows_;
     size_type cols_;
-    std::vector<value_type> data_;
+    std::vector<value_type, allocator_type> data_;
 };
 
 #endif

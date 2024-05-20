@@ -5,21 +5,26 @@
 #include <complex>
 #include <iostream>
 #include <vector>
+
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
+#include "aligned-allocator.h"
 
-std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIteration(std::complex<double> lambda, double tol);
+using value_type = std::complex<double>;
+using matrix_type = Matrix<value_type, util::AlignedAllocator<value_type>>;
 
-std::pair<std::complex<double>, Matrix<std::complex<double>>>
-NewtonTraceIterationSecantMethod(std::complex<double> lambda,
-                                 const double& tol,
-                                 Parameters& para,
-                                 const Matrix<double>& coeff_matrix,
-                                 const Grid<double>& grid_info,
-                                 const int&);
+std::pair<value_type, matrix_type> NewtonTraceIteration(value_type lambda,
+                                                        double tol);
+
+std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
+    value_type lambda,
+    const double& tol,
+    Parameters& para,
+    const Matrix<double>& coeff_matrix,
+    const Grid<double>& grid_info,
+    const int&);
 
 template <typename T>
 
@@ -67,19 +72,16 @@ Matrix<T> nullSpace(const Matrix<T>& A) {
 // Function representing the nonlinear eigenvalue problem (NLEP)
 // F(lambda, x) = 0
 template <typename Func>
-Matrix<std::complex<double>> F(const std::complex<double>& tau,
-                               const std::complex<double>& lambda,
-                               const Func& func,
-                               const Matrix<double>& coeff_matrix,
-                               const Grid<double>& grid_info) {
+matrix_type F(const value_type& tau,
+              const value_type& lambda,
+              const Func& func,
+              const Matrix<double>& coeff_matrix,
+              const Grid<double>& grid_info) {
     // Implement the NLEP function here
     // This function should return a vector representing the residual (F(lambda,
     // x)) for a given eigenvalue (lambda) and eigenvector (x)
-    // using namespace std::chrono;
 
-    Matrix<std::complex<double>> quadrature_matrix(grid_info.npoints,
-                                                   grid_info.npoints);
-    Matrix<std::complex<double>> f_lambda(grid_info.npoints, grid_info.npoints);
+    matrix_type quadrature_matrix(grid_info.npoints, grid_info.npoints);
 
     auto& thread_pool = DedicatedThreadPool<void>::get_instance();
     std::vector<std::future<void>> res;
