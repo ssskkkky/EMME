@@ -1,11 +1,17 @@
+#define lapack_complex_float std::complex<float>
+#define lapack_complex_double std::complex<double>
+
+#include "solver.h"
+
 #include <complex>
 #include <iostream>
 #include <vector>
+
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
 #include "functions.h"
-#include "solver.h"
+#include "lapack.h"
 
 // Jacobian of F(lambda)
 Matrix<std::complex<double>> Jacobian(std::complex<double> lambda) {
@@ -184,57 +190,88 @@ NewtonTraceIterationSecantMethod(std::complex<double> lambda,
                                  const Grid<double>& grid_info,
                                  const int& max_iter) {
     Matrix<std::complex<double>> F_lambda = F(
-        para.tau, lambda,
-        [&para](double eta, double eta_p, std::complex<double> omega) {
-            return para.kappa_f_tau(eta, eta_p, omega);
+        para.tau, para.beta_e, lambda,
+        [&para](unsigned i, double eta, double eta_p,
+                std::complex<double> omega) {
+            return para.kappa_f_tau(i, eta, eta_p, omega) +
+                   para.kappa_f_tau_e(i, eta, eta_p, omega);
         },
-        coeff_matrix, grid_info);
+        [&para](double eta) { return para.bi(eta); }, coeff_matrix, grid_info);
 
     Matrix<std::complex<double>> F_old_lambda = F_lambda;
-    Matrix<std::complex<double>> linear_solution_matrix(F_lambda.getRows(),
-                                                        F_lambda.getCols());
 
     Matrix<std::complex<double>> J_lambda =
-        (F_lambda -
-         F(
-             para.tau, lambda * 0.99,
-             [&para](double eta, double eta_p, std::complex<double> omega) {
-                 return para.kappa_f_tau(eta, eta_p, omega);
-             },
-             coeff_matrix, grid_info)) /
+        (F_lambda - F(
+                        para.tau, para.beta_e, 0.99 * lambda,
+                        [&para](unsigned i, double eta, double eta_p,
+                                std::complex<double> omega) {
+                            return para.kappa_f_tau(i, eta, eta_p, omega) +
+                                   para.kappa_f_tau_e(i, eta, eta_p, omega);
+                        },
+                        [&para](double eta) { return para.bi(eta); },
+                        coeff_matrix, grid_info)
+
+             ) /
         (0.01 * lambda);
 
+    const char* upper = "Upper";
+    const lapack_int dim = F_lambda.getRows();
+    lapack_int work_length = dim;
+    lapack_int optimal_work_length{};
+    std::vector<std::complex<double>> work(work_length);
+    std::vector<lapack_int> ipiv(dim);
+    lapack_int info{};
     for (int i = 0; i < max_iter; ++i) {
-        auto l_u_p = F_lambda.luDecomposition();
+        // auto l_u_p = F_lambda.luDecomposition();
 
-        for (int j = 0; j < F_lambda.getCols(); ++j) {
-            linear_solution_matrix.setCol(
-                j, LUSolveLinearSystem(l_u_p, J_lambda.getCol(j)));
-        };  // getCol and setCol is slow, need to be optimized;
+        // for (int j = 0; j < F_lambda.getCols(); ++j) {
+        //     linear_solution_matrix.setCol(
+        //         j, LUSolveLinearSystem(l_u_p, J_lambda.getCol(j)));
+        // };  // getCol and setCol is slow, need to be optimized;
+
+        if (optimal_work_length > work_length) {
+            work_length = optimal_work_length;
+            work.resize(work_length);
+        }
+
+        F_old_lambda = F_lambda;  // store the previous lambda matrix
+        LAPACK_zsysv(upper, &dim, &dim, F_lambda.data(), &dim, ipiv.data(),
+                     J_lambda.data(), &dim, work.data(), &work_length, &info);
+
+        if (info != 0) {
+            if (info < 0) {
+                std::cout << "the " << -info
+                          << "-th argument had an illegal value";
+            } else {
+                std::cout << "The factorization has been completed, but the "
+                             "block diagonal matrix D is exactly singular at "
+                          << i << ", so the solution could not be computed.";
+            }
+            throw std::runtime_error("Linear solve failed");
+        }
 
         // Update eigenvalue and eigenvector
-        auto d_lambda = 1.0 / linear_solution_matrix.trace();
+        auto d_lambda = 1.0 / J_lambda.trace();
 
         if (std::abs(d_lambda) > std::abs(tol * lambda)) {
             lambda -= d_lambda;
-            std::cout << lambda << std::endl;
+            std::cout << lambda << '\n';
         } else {
-            return {lambda, F_lambda};
+            break;
         }
 
-        F_old_lambda = F_lambda;
         F_lambda = F(
-            para.tau, lambda,
-            [&para](double eta, double eta_p, std::complex<double> omega) {
-                return para.kappa_f_tau(eta, eta_p, omega);
+            para.tau, para.beta_e, lambda,
+            [&para](unsigned i, double eta, double eta_p,
+                    std::complex<double> omega) {
+                return para.kappa_f_tau(i, eta, eta_p, omega) +
+                       para.kappa_f_tau_e(i, eta, eta_p, omega);
             },
-            coeff_matrix, grid_info);
+            [&para](double eta) { return para.bi(eta); }, coeff_matrix,
+            grid_info);
+
         J_lambda = (F_old_lambda - F_lambda) / (d_lambda);
     }
 
-    // // Throw an exception or return a flag if convergence is not achieved
-    // throw std::runtime_error(
-    //     "Newton trace iteration did not converge within maximum iterations");
-
-    return {lambda, F_lambda};
+    return {lambda, F_old_lambda};
 }
