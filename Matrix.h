@@ -6,6 +6,23 @@
 #include <tuple>
 #include <vector>
 
+#ifdef EMME_EXPRESSION_TEMPLATE
+#include <functional>
+
+#include "Arithmetics.h"
+
+template <util::Indexable E1, util::Indexable E2>
+auto operator-(const E1& e1, const E2& e2) {
+    return util::BinaryExpression<E1, E2, std::minus<void>>{e1, e2};
+}
+
+template <util::Indexable E1, typename E2>
+auto operator/(const E1& e1, const E2& e2) {
+    return util::BinaryExpressionA2<E1, E2, std::divides<void>>{e1, e2};
+}
+
+#endif
+
 template <typename T, typename A = std::allocator<T>>
 class Matrix {
    public:
@@ -58,11 +75,6 @@ class Matrix {
         return *this;
     }
 
-    friend matrix_type operator-(matrix_type a, const matrix_type& b) {
-        a -= b;
-        return a;
-    }
-
     // Function to perform division of the matrix by a scalar
     matrix_type& operator/=(const T& scalar) {
 #ifdef EMME_DEBUG
@@ -76,11 +88,40 @@ class Matrix {
         return *this;
     }
 
+#ifdef EMME_EXPRESSION_TEMPLATE
+    explicit Matrix(util::Dimension<2> dim) : Matrix(dim.dim[0], dim.dim[1]) {}
+
+    template <util::Indexable U>
+    matrix_type& operator=(const U& other) {
+        for (size_type i = 0; i < data_.size(); ++i) { data_[i] = other[i]; }
+        return *this;
+    }
+
+    template <util::Indexable U>
+    Matrix(const U& other) requires(
+        !std::is_same_v<std::remove_cvref_t<U>, matrix_type>)
+        : Matrix(other.get_dim()) {
+        operator=(other);
+    }
+
+    auto get_dim() const {
+        return util::Dimension<2>{{rows_, cols_}};
+    }
+
+    const value_type& operator[](size_type idx) const {
+        return data_[idx];
+    }
+
+#else
+    friend matrix_type operator-(matrix_type a, const matrix_type& b) {
+        a -= b;
+        return a;
+    }
     friend matrix_type operator/(matrix_type m, const value_type& a) {
         m /= a;
         return m;
     }
-
+#endif
     // Get number of rows
     size_type getRows() const {
         return rows_;
