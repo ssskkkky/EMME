@@ -6,6 +6,9 @@
 #include <limits>
 #include <string>
 #include <type_traits>
+#include <vector>
+
+#include "Matrix.h"
 
 // Function to read contents of a file line by line
 std::string readInputFromFile(const std::string& filename);
@@ -329,5 +332,26 @@ auto bessel_i_helper(const T& z) {
 }
 
 }  // namespace util
+
+template <typename T>
+std::ostream& operator<<(std::ostream& outputStream,
+                         const std::vector<T>& vectorObj) {
+    // Print all the elements of vector using loop
+    for (auto elem : vectorObj) { outputStream << elem << " "; }
+    return outputStream;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& output_stream, const Matrix<T>& matrix) {
+    for (unsigned int i = 0; i < matrix.getRows(); i++) {
+        for (unsigned int j = 0; j < matrix.getCols(); j++) {
+            output_stream << matrix(i, j).real() << " " << matrix(i, j).imag()
+                          << " ";  // Separate real and imaginary parts
+        }
+        output_stream << std::endl;  // New line after each row
+    }
+
+    return output_stream;
+}
 
 #endif

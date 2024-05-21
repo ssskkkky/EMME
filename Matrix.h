@@ -113,7 +113,7 @@ class Matrix {
     // }
 
     // Get a reference to a specific row
-    const std::vector<T>& getRow(int row) const {
+    const std::vector<T> getRow(unsigned int row) const {
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
         }

@@ -11,6 +11,7 @@ struct Parameters {
                double tau_input,
                double epsilon_n_input,
                double eta_i_input,
+               double eta_e_input,
                double b_theta_input,
                double beta_e_input,
                double R_input,
@@ -41,6 +42,7 @@ struct Parameters {
     double omega_s_i;    // Calculated in constructor
     double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
+
     double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
@@ -86,5 +88,7 @@ struct Parameters {
     /* std::complex<double> bessel_0; */
     /* std::complex<double> bessel_1; */
 };
+
+struct Stellarator : Parameters {};
 
 #endif

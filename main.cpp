@@ -1,7 +1,8 @@
 #include <complex>
 #include <fstream>
 #include <iostream>
-#include <string>
+#include <utility>
+
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
@@ -11,7 +12,6 @@
 
 int main() {
     std::string filename = "emme.in";
-
     std::ifstream input_file(filename);
 
     double q_input;
@@ -19,6 +19,7 @@ int main() {
     double tau_input;
     double epsilon_n_input;
     double eta_i_input;
+    double eta_e_input;
     double b_theta_input;
     double beta_e_input;
     double R_input;
@@ -31,8 +32,8 @@ int main() {
     double initial_guess_imag;
 
     input_file >> q_input >> shat_input >> tau_input >> epsilon_n_input >>
-        eta_i_input >> b_theta_input >> beta_e_input >> R_input >> vt_input >>
-        length_input >> theta_input >> npoints_input >>
+        eta_i_input >> eta_e_input >> b_theta_input >> beta_e_input >>
+        R_input >> vt_input >> length_input >> theta_input >> npoints_input >>
         iteration_step_limit_input >> initial_guess_real >> initial_guess_imag;
 
     input_file.close();
@@ -53,8 +54,8 @@ int main() {
                                              initial_guess_imag);
 
     Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
-                    eta_i_input, b_theta_input, beta_e_input, R_input, vt_input,
-                    length_input, theta_input, npoints_input,
+                    eta_i_input, eta_e_input, b_theta_input, beta_e_input,
+                    R_input, vt_input, length_input, theta_input, npoints_input,
                     iteration_step_limit_input);
 
     auto length = para.length;
@@ -81,20 +82,41 @@ int main() {
     // output(filename);
 
     // Set the tolerance for convergence
+    // std::pair<std::complex<double>, Matrix<std::complex<double>>> result;
+    std::ofstream outfile("emme_eigen_vector.csv");
+    std::ofstream eigenvalue("emme_eigen_value.csv");
+
     double tol = 1e-6;
+    for (unsigned int i = 0; i <= 40; i++) {
+        std::cout << para.q << std::endl;
+        auto result = NewtonTraceIterationSecantMethod(
+            omega_initial_guess, tol, para, coeff_matrix, grid_info,
+            para.iteration_step_limit);
 
-    auto result = NewtonTraceIterationSecantMethod(
-        omega_initial_guess, tol, para, coeff_matrix, grid_info,
-        para.iteration_step_limit);
+        std::cout << "Eigenvalue: " << result.first.real() << " "
+                  << result.first.imag() << std::endl;
+        eigenvalue << result.first.real() << " " << result.first.imag()
+                   << std::endl;
+        auto null_space = NullSpace(result.second, 1e-1);
+        if (!outfile.is_open()) {
+            // Handle error
+            return 1;
+        }
 
-    std::cout << "Eigenvalue: " << result.first << std::endl;
+        outfile << null_space;
+        para.q += 0.05;
+        omega_initial_guess = result.first;
+    }
+
+    outfile.close();
 
     // std::cout << para.kappa_f_tau(3.0, 2.0, 1.0);
 
     // std::cout << 1.0 / para.lambda_f_tau(3.0, 2.0, 1.0) *
     //                  util::bessel_ic(
     //                      0, std::sqrt((para.bi(3.0) * para.bi(2.0)) /
-    //                                   para.lambda_f_tau(3.0, 2.0, 1.0))) *
+    //                                   para.lambda_f_tau(3.0, 2.0, 1.0)))
+    //                                   *
     //                  std::exp(-(para.bi(3.0) + para.bi(2.0)) /
     //                           (2.0 * para.lambda_f_tau(3.0, 2.0, 1.0)));
 
@@ -104,7 +126,8 @@ int main() {
     //                  para.lambda_f_tau(3.0, 2.0, 1.0);
 
     // std::cout << util::bessel_ic(0,
-    //                              std::sqrt((para.bi(3.0) * para.bi(2.0)) /
+    //                              std::sqrt((para.bi(3.0) * para.bi(2.0))
+    //                              /
     //                                        para.lambda_f_tau(3.0, 2.0, 1.0)));
 
     // std::cout << std::exp(-(para.bi(3.0) + para.bi(2.0)) /
