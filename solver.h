@@ -72,27 +72,31 @@ Matrix<T> nullSpace(const Matrix<T>& A) {
 // Function representing the nonlinear eigenvalue problem (NLEP)
 // F(lambda, x) = 0
 template <typename Func>
-matrix_type F(const value_type& tau,
-              const value_type& lambda,
-              const Func& func,
-              const Matrix<double>& coeff_matrix,
-              const Grid<double>& grid_info) {
+void F(const value_type& tau,
+       const value_type& lambda,
+       const Func& func,
+       const Matrix<double>& coeff_matrix,
+       const Grid<double>& grid_info,
+       matrix_type& mat) {
     // Implement the NLEP function here
     // This function should return a vector representing the residual (F(lambda,
     // x)) for a given eigenvalue (lambda) and eigenvector (x)
-
-    matrix_type quadrature_matrix(grid_info.npoints, grid_info.npoints);
-
+#ifdef EMME_DEBUG
+    if (mat.getRows() != grid_info.npoints ||
+        mat.getCols() != grid_info.npoints) {
+        throw std::runtime_error("Matrix dimension and grid length mismatch.");
+    }
+#endif
     auto& thread_pool = DedicatedThreadPool<void>::get_instance();
     std::vector<std::future<void>> res;
 
     for (unsigned int j = 0; j < grid_info.npoints; j++) {
         for (unsigned int i = 0; i < grid_info.npoints; i++) {
             if (i == j) {
-                quadrature_matrix(i, j) = (1.0 + 1.0 / tau);
+                mat(i, j) = (1.0 + 1.0 / tau);
             } else {
                 res.push_back(thread_pool.queue_task([&, i, j]() {
-                    quadrature_matrix(i, j) =
+                    mat(i, j) =
                         -func(grid_info.grid[i], grid_info.grid[j], lambda) *
                         coeff_matrix(i, j) * grid_info.dx;
                 }));
@@ -100,7 +104,16 @@ matrix_type F(const value_type& tau,
         }
     }
     for (auto& f : res) { f.get(); }
+}
 
+template <typename Func>
+matrix_type F(const value_type& tau,
+              const value_type& lambda,
+              const Func& func,
+              const Matrix<double>& coeff_matrix,
+              const Grid<double>& grid_info) {
+    matrix_type quadrature_matrix(grid_info.npoints, grid_info.npoints);
+    F(tau, lambda, func, coeff_matrix, grid_info, quadrature_matrix);
     return quadrature_matrix;
 }
 

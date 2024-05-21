@@ -214,13 +214,6 @@ std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
     std::vector<lapack_int> ipiv(dim);
     lapack_int info{};
     for (int i = 0; i < max_iter; ++i) {
-        // auto l_u_p = F_lambda.luDecomposition();
-
-        // for (int j = 0; j < F_lambda.getCols(); ++j) {
-        //     linear_solution_matrix.setCol(
-        //         j, LUSolveLinearSystem(l_u_p, J_lambda.getCol(j)));
-        // };  // getCol and setCol is slow, need to be optimized;
-
         if (optimal_work_length > work_length) {
             work_length = optimal_work_length;
             work.resize(work_length);
@@ -253,12 +246,12 @@ std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
             break;
         }
 
-        F_lambda = F(
+        F(
             para.tau, lambda,
             [&para](double eta, double eta_p, value_type omega) {
                 return para.kappa_f_tau(eta, eta_p, omega);
             },
-            coeff_matrix, grid_info);
+            coeff_matrix, grid_info, F_lambda);
         J_lambda = (F_old_lambda - F_lambda) / (d_lambda);
     }
 
