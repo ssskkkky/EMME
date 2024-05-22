@@ -341,8 +341,9 @@ std::ostream& operator<<(std::ostream& outputStream,
     return outputStream;
 }
 
-template <typename T>
-std::ostream& operator<<(std::ostream& output_stream, const Matrix<T>& matrix) {
+template <typename T, typename A>
+std::ostream& operator<<(std::ostream& output_stream,
+                         const Matrix<T, A>& matrix) {
     for (unsigned int i = 0; i < matrix.getRows(); i++) {
         for (unsigned int j = 0; j < matrix.getCols(); j++) {
             output_stream << matrix(i, j).real() << " " << matrix(i, j).imag()
