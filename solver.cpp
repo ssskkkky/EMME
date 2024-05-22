@@ -230,7 +230,7 @@ std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
     return {lambda, F_old_lambda};
 }
 
-matrix_type NullSpace(const matrix_type& input, const double tol) {
+std::vector<value_type> NullSpace(const matrix_type& input, const double tol) {
     auto A = input;
     // Check if the matrix is square
     if (A.getRows() != A.getCols()) {
@@ -287,5 +287,10 @@ matrix_type NullSpace(const matrix_type& input, const double tol) {
             col_index++;
         }
     }
-    return null_space;
-};  // this is not tested
+    return V.getCol(V.getCols());
+};
+
+// class EigenSolver{
+// public:
+//   EigenSolver(){}
+// }

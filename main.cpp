@@ -87,17 +87,27 @@ int main() {
     std::ofstream eigenvalue("emme_eigen_value.csv");
 
     double tol = 1e-6;
+
+    auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
+        para, omega_initial_guess, coeff_matrix, grid_info);
+
     for (unsigned int i = 0; i <= 40; i++) {
         std::cout << para.q << std::endl;
-        auto result = NewtonTraceIterationSecantMethod(
-            omega_initial_guess, tol, para, coeff_matrix, grid_info,
-            para.iteration_step_limit);
 
-        std::cout << "Eigenvalue: " << result.first.real() << " "
-                  << result.first.imag() << std::endl;
-        eigenvalue << result.first.real() << " " << result.first.imag()
-                   << std::endl;
-        auto null_space = NullSpace(result.second, 1e-1);
+        for (int j = 0; j <= para.iteration_step_limit; j++) {
+            eigen_solver.newtonTraceSecantIteration();
+            std::cout << eigen_solver.eigen_value;
+            if (std::abs(eigen_solver.d_eigen_value) <
+                std::abs(tol * eigen_solver.eigen_value)) {
+                break;
+            }
+        }
+
+        std::cout << "Eigenvalue: " << eigen_solver.eigen_value.real() << " "
+                  << eigen_solver.eigen_value.imag() << std::endl;
+        eigenvalue << eigen_solver.eigen_value.real() << " "
+                   << eigen_solver.eigen_value.imag() << std::endl;
+        auto null_space = eigen_solver.nullSpace();
         if (!outfile.is_open()) {
             // Handle error
             return 1;
@@ -105,7 +115,7 @@ int main() {
 
         outfile << null_space;
         para.q += 0.05;
-        omega_initial_guess = result.first;
+        omega_initial_guess = eigen_solver.eigen_value;
     }
 
     outfile.close();
