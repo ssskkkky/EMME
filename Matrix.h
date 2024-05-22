@@ -1,4 +1,4 @@
-#ifndef MATRIX_H  // Replace MATRIX_H with your unique guard macro name
+#ifndef MATRIX_H
 #define MATRIX_H
 
 #include <complex>
@@ -6,168 +6,194 @@
 #include <tuple>
 #include <vector>
 
-template <typename T>
+#ifdef EMME_EXPRESSION_TEMPLATE
+#include <functional>
+
+#include "Arithmetics.h"
+
+template <util::Indexable E1, util::Indexable E2>
+auto operator-(const E1& e1, const E2& e2) {
+    return util::BinaryExpression<E1, E2, std::minus<void>>{e1, e2};
+}
+
+template <util::Indexable E1, typename E2>
+auto operator/(const E1& e1, const E2& e2) {
+    return util::BinaryExpressionA2<E1, E2, std::divides<void>>{e1, e2};
+}
+
+#endif
+
+template <typename T, typename A = std::allocator<T>>
 class Matrix {
    public:
-    // Constructor with dimensions
-    Matrix(int rows, int cols) : rows_(rows), cols_(cols) {
-        data_ = std::vector<T>(rows * cols);
-    }
+    using size_type = std::size_t;
+    using value_type = T;
+    using allocator_type = A;
+    using matrix_type = Matrix<value_type, allocator_type>;
 
-    const T* begin() const { return data_.data(); }
-    const T* end() const { return data_.data() + data_.size(); }
+    // Constructor with dimensions
+    Matrix(size_type rows, size_type cols)
+        : rows_(rows), cols_(cols), data_(rows * cols) {}
+
+    auto begin() const noexcept { return data_.begin(); }
+    auto end() const noexcept { return data_.end(); }
 
     // Access element at (row, col)
-    T& operator()(unsigned int row, unsigned int col) {
+    value_type& operator()(size_type row, size_type col) {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
+#endif
         return data_[row * cols_ + col];
     }
 
-    const T& operator()(unsigned int row, unsigned int col) const {
+    const value_type& operator()(size_type row, size_type col) const {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix index out of bounds");
         }
+#endif
         return data_[row * cols_ + col];
     }
 
     // Function to perform matrix subtraction
-    Matrix<T> operator-(const Matrix<T>& other) const {
+    matrix_type& operator-=(const matrix_type& other) {
+#ifdef EMME_DEBUG
         // Check if dimensions are compatible
         if (rows_ != other.rows_ || cols_ != other.cols_) {
             throw std::invalid_argument(
                 "Matrices must have the same dimensions for subtraction.");
         }
-
-        // Create a result matrix with the same dimensions
-        Matrix<T> result(rows_, cols_);
+#endif
 
         // Subtract corresponding elements from each matrix
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) =
-                    data_[i * cols_ + j] - other.data_[i * cols_ + j];
-            }
+        for (size_type i = 0; i < data_.size(); ++i) {
+            data_[i] -= other.data_[i];
         }
 
-        return result;
+        return *this;
     }
 
     // Function to perform division of the matrix by a scalar
-    Matrix<T> operator/(const T& scalar) const {
+    matrix_type& operator/=(const T& scalar) {
+#ifdef EMME_DEBUG
         // Check for division by zero
         if (scalar.real() == 0 && scalar.imag() == 0) {
             throw std::invalid_argument("Division by zero is not allowed.");
         }
-
-        // Create a result matrix with the same dimensions
-        Matrix<T> result(rows_, cols_);
-
+#endif
         // Divide each element by the scalar
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) = data_[i * cols_ + j] / scalar;
-            }
-        }
-
-        return result;
+        for (auto& v : data_) { v /= scalar; }
+        return *this;
     }
 
-    // Element-wise matrix multiplication (overloaded operator *)
-    Matrix<T> operator*(const Matrix<T>& other) const {
-        if (rows_ != other.rows_ || cols_ != other.cols_) {
-            throw std::invalid_argument(
-                "Matrices must have the same dimensions for element-wise "
-                "multiplication");
-        }
-        Matrix<T> result(rows_, cols_);
-        for (unsigned int i = 0; i < rows_; ++i) {
-            for (unsigned int j = 0; j < cols_; ++j) {
-                result(i, j) = (*this)(i, j) * other(i, j);
-            }
-        }
-        return result;
+#ifdef EMME_EXPRESSION_TEMPLATE
+    explicit Matrix(util::Dimension<2> dim) : Matrix(dim.dim[0], dim.dim[1]) {}
+
+    template <util::Indexable U>
+    matrix_type& operator=(const U& other) {
+        for (size_type i = 0; i < data_.size(); ++i) { data_[i] = other[i]; }
+        return *this;
     }
 
+    template <util::Indexable U>
+    Matrix(const U& other) requires(
+        !std::is_same_v<std::remove_cvref_t<U>, matrix_type>)
+        : Matrix(other.get_dim()) {
+        operator=(other);
+    }
+
+    auto get_dim() const {
+        return util::Dimension<2>{{rows_, cols_}};
+    }
+
+    const value_type& operator[](size_type idx) const {
+        return data_[idx];
+    }
+
+#else
+    friend matrix_type operator-(matrix_type a, const matrix_type& b) {
+        a -= b;
+        return a;
+    }
+    friend matrix_type operator/(matrix_type m, const value_type& a) {
+        m /= a;
+        return m;
+    }
+#endif
     // Get number of rows
-    int getRows() const { return rows_; }
+    size_type getRows() const {
+        return rows_;
+    }
 
     // Get number of columns
-    int getCols() const { return cols_; }
+    size_type getCols() const {
+        return cols_;
+    }
 
-    // Get a reference to a specific column
-    const std::vector<T> getCol(unsigned int col) const {
+    // Get a specific column
+    const std::vector<T> getCol(size_type col) const {
+#ifdef EMME_DEBUG
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
-
+#endif
         std::vector<T> col_view(rows_);
-        for (unsigned int i = 0; i < rows_; ++i) {
-            col_view[i] = (*this)(i, col);
-        }
+        for (size_type i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
         return col_view;
     }
 
-    // // Get a reference to a specific column
-    // std::vector<T>& getCol(int col) {
-    //     if (col < 0 || col >= cols_) {
-    //         throw std::out_of_range("Matrix column index out of bounds");
-    //     }
-
-    //     std::vector<T> col_view(rows_);
-    //     for (int i = 0; i < rows_; ++i) { col_view[i] = (*this)(i, col); }
-    //     return col_view;
-    // }
-
-    // Get a reference to a specific row
-    const std::vector<T>& getRow(int row) const {
+    // Get a specific row
+    std::vector<value_type> getRow(size_type row) const {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
         }
-
-        // Return a reference to a sub-vector of the data_ vector starting at
-        // row*cols_
+#endif
         return std::vector<T>(data_.begin() + row * cols_,
                               data_.begin() + (row + 1) * cols_);
     }
 
     // Assign values to a specific column
-    void setCol(unsigned int col, const std::vector<T>& new_col) {
+    void setCol(size_type col, const std::vector<value_type>& new_col) {
+#ifdef EMME_DEBUG
         if (col < 0 || col >= cols_) {
             throw std::out_of_range("Matrix column index out of bounds");
         }
         if (new_col.size() != rows_) {
             throw std::invalid_argument("Column size mismatch");
         }
-
-        for (unsigned int i = 0; i < rows_; ++i) {
-            (*this)(i, col) = new_col[i];
+#endif
+        for (size_type i = 0; i < rows_; ++i) {
+            operator()(i, col) = new_col[i];
         }
     }
 
     // Assign values to a specific row
-    void setRow(int row, const std::vector<T>& new_row) {
+    void setRow(int row, const std::vector<value_type>& new_row) {
+#ifdef EMME_DEBUG
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
         }
         if (new_row.size() != cols_) {
             throw std::invalid_argument("Row size mismatch");
         }
-
+#endif
         std::copy(new_row.begin(), new_row.end(), data_.begin() + row * cols_);
     }
 
     // Calculate the trace of the matrix
-    T trace() const {
+    value_type trace() const {
+#ifdef EMME_DEBUG
         if (rows_ != cols_) {
             throw std::invalid_argument(
                 "Matrix must be square for trace calculation");
         }
-
-        T sum = 0.0;
-        for (unsigned int i = 0; i < rows_; ++i) {
-            sum += (*this)(i, i);  // Access diagonal element using (i, i)
+#endif
+        value_type sum{};
+        for (size_type i = 0; i < rows_; ++i) {
+            sum += operator()(i, i);  // Access diagonal element using (i, i)
         }
         return sum;
     }
@@ -221,10 +247,14 @@ class Matrix {
         return std::make_tuple(L, U, perm);
     }
 
+    auto data() {
+        return data_.data();
+    }
+
    private:
-    unsigned int rows_;
-    unsigned int cols_;
-    std::vector<T> data_;
+    size_type rows_;
+    size_type cols_;
+    std::vector<value_type, allocator_type> data_;
 };
 
 #endif

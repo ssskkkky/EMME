@@ -36,3 +36,6 @@ emme
 #TAGS
 TAGS
 tags
+
+# data
+*.csv

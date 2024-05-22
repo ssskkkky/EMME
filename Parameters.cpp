@@ -8,7 +8,9 @@ Parameters::Parameters(double q_input,
                        double tau_input,
                        double epsilon_n_input,
                        double eta_i_input,
+                       double eta_e_input,
                        double b_theta_input,
+                       double beta_e_input,
                        double R_input,
                        double vt_input,
                        double length_input,
@@ -20,18 +22,22 @@ Parameters::Parameters(double q_input,
       tau(tau_input),
       epsilon_n(epsilon_n_input),
       eta_i(eta_i_input),
+      eta_e(eta_e_input),
       b_theta(b_theta_input),
+      beta_e(beta_e_input),
       R(R_input),
       vt(vt_input),
+      alpha(q * q * R * beta_e / (epsilon_n * R) *
+            ((1 + eta_e) + 1 / tau * (1 + eta_i))),
       length(length_input),
       theta(theta_input),
       npoints(npoints_input),
       iteration_step_limit(iteration_step_limit_input),
       omega_s_i(-(std::sqrt(b_theta) * vt) / (epsilon_n * R)),
+      omega_s_e(-tau * omega_s_i),
       omega_d_bar(2.0 * epsilon_n * omega_s_i) {}
 
 double Parameters::g_integration_f(double eta) const {
-    double alpha = 0.0;
     return -((alpha * eta) / 2.0) - shat * eta * std::cos(eta) + std::sin(eta) +
            shat * std::sin(eta) + 0.25 * alpha * std::sin(2.0 * eta);
 }
@@ -41,8 +47,12 @@ double Parameters::beta_1(double eta, double eta_p) const {
            (g_integration_f(eta) - g_integration_f(eta_p));
 }
 
+double Parameters::beta_1_e(double eta, double eta_p) const {
+    return (q * R) / vt * (2.0 * epsilon_n * omega_s_e) *
+           (g_integration_f(eta) - g_integration_f(eta_p));
+}
+
 double Parameters::bi(double eta) const {
-    double alpha = 0.0;
     return b_theta * (1.0 + pow(shat * eta - alpha * std::sin(eta), 2));
 }
 std::complex<double> Parameters::lambda_f_tau(double eta,
@@ -107,7 +117,8 @@ std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
     return exp(std::complex<double>(0.0, 1.0) * tau * omega);
 }
 
-std::complex<double> Parameters::kappa_f_tau(double eta,
+std::complex<double> Parameters::kappa_f_tau(unsigned int m,
+                                             double eta,
                                              double eta_p,
                                              std::complex<double> omega)
 
@@ -127,10 +138,13 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
                                           2) -
                            1.5))) *
             integration_lambda_tau(eta, eta_p, taut, passer);
+
         std::complex<double> term2 =
             omega_s_i * eta_i *
             integration_lambda_d_tau(eta, eta_p, taut, passer);
-        return std::exp(-0.5 *
+
+        return std::pow((q * R) / (taut * vt) * (eta - eta_p), m) *
+               std::exp(-0.5 *
                         std::pow((q * R * (eta - eta_p)) / (vt * taut), 2)) /
                taut * (term1 + term2) *
                std::exp(std::complex<double>(0, 1.0) *
@@ -141,11 +155,12 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
 
     // Perform numerical integration
     double lower_bound = 0.0;
-    double upper_bound =
-        10.0 * M_PI / vt;  // Assuming your integration limits are 0 and 4*pi/vt
+    double upper_bound = std::numeric_limits<double>::infinity();
+    // 10.0 * M_PI /
+    // vt;  // Assuming your integration limits are 0 and 10*pi/vt
     double tol = 1e-5;
     int max_iterations =
-        10;  // Adjust as needed for your integration accuracy requirements
+        5;  // Adjust as needed for your integration accuracy requirements
 
     auto result = util::integrate(integrand, lower_bound, upper_bound, tol,
                                   max_iterations);
@@ -166,4 +181,29 @@ std::complex<double> Parameters::kappa_f_tau(double eta,
 
     return -std::complex<double>(0, 1.0) * (q * R) /
            (vt * std::sqrt((2.0 * M_PI))) * result;
+}
+
+std::complex<double> Parameters::kappa_f_tau_e(unsigned int m,
+                                               double eta,
+                                               double eta_p,
+                                               std::complex<double> omega)
+
+{
+    switch (m) {
+        case 0:
+            return 0.0;
+        case 1:
+            return -std::complex<double>(0.0, 1.0) * (q * R) /
+                   (2.0 * vt * tau) * (omega - omega_s_e) * (eta - eta_p) /
+                   (std::abs(eta - eta_p));
+        case 2:
+            return (q * q * R * R) / (2.0 * vt * vt * tau) * (eta - eta_p) /
+                   (std::abs(eta - eta_p)) *
+                   (omega * (omega - omega_s_e) * (eta - eta_p) -
+                    beta_1_e(eta, eta_p) * vt / (q * R) *
+                        (omega - omega_s_e * (1.0 + eta_e)));
+        default:
+            // Handle unexpected mode (throw exception or return special value)
+            throw std::invalid_argument("Unsupported mode value");
+    }
 }

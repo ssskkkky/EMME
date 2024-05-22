@@ -9,6 +9,8 @@
 #include <type_traits>
 #include <vector>
 
+#include "Matrix.h"
+
 // Function to read contents of a file line by line
 std::string readInputFromFile(const std::string& filename);
 
@@ -106,6 +108,7 @@ struct gauss_kronrod_detail<15> {
             0.38183005050511894,
             0.27970539148927667,
             0.12948496616886969,
+
         };
     }
     constexpr static std::array<double, 8> kronrod_weight() {
@@ -115,6 +118,46 @@ struct gauss_kronrod_detail<15> {
             1.40653259715525919e-01, 1.04790010322250184e-01,
             6.30920926299785533e-02, 2.29353220105292250e-02,
         };
+    }
+};
+
+template <>
+struct gauss_kronrod_detail<31> {
+    constexpr static std::array<double, 16> abscissa() {
+        return {
+
+            0.0,
+            0.1011420669187175,
+            0.20119409399743452,
+            0.29918000715316881,
+            0.39415134707756337,
+            0.48508186364023968,
+            0.57097217260853885,
+            0.65099674129741697,
+            0.72441773136017005,
+            0.79041850144246593,
+            0.84820658341042722,
+            0.8972645323440819,
+            0.9372733924007059,
+            0.96773907567913913,
+            0.98799251802048543,
+            0.99800229869339706
+
+        };
+    }
+    constexpr static std::array<double, 8> gauss_weight() {
+        return {0.20257824192556112, 0.19843148532711152, 0.18616100001556193,
+                0.1662692058169939,  0.1395706779261542,  0.10715922046717143,
+                0.07036604748810768, 0.030753241996119};
+    }
+    constexpr static std::array<double, 16> kronrod_weight() {
+        return {
+            0.10133000701479155,   0.100769845523875595,  0.099173598721791959,
+            0.0966427269836236785, 0.093126598170825321,  0.0885644430562117706,
+            0.083080502823133021,  0.0768496807577203789, 0.069854121318728259,
+            0.0620095678006706403, 0.053481524690928087,  0.0445897513247648766,
+            0.035346360791375846,  0.0254608473267153202, 0.0150079473293161225,
+            0.00537747987292334899};
     }
 };
 
@@ -280,5 +323,27 @@ auto bessel_i_helper(const T& z) {
 }
 
 }  // namespace util
+
+template <typename T>
+std::ostream& operator<<(std::ostream& outputStream,
+                         const std::vector<T>& vectorObj) {
+    // Print all the elements of vector using loop
+    for (auto elem : vectorObj) { outputStream << elem << " "; }
+    return outputStream;
+}
+
+template <typename T, typename A>
+std::ostream& operator<<(std::ostream& output_stream,
+                         const Matrix<T, A>& matrix) {
+    for (unsigned int i = 0; i < matrix.getRows(); i++) {
+        for (unsigned int j = 0; j < matrix.getCols(); j++) {
+            output_stream << matrix(i, j).real() << " " << matrix(i, j).imag()
+                          << " ";  // Separate real and imaginary parts
+        }
+        output_stream << std::endl;  // New line after each row
+    }
+
+    return output_stream;
+}
 
 #endif
