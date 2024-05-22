@@ -145,7 +145,7 @@ class Matrix {
     }
 
     // Get a specific row
-    const std::vector<T> getRow(int row) const {
+    std::vector<value_type> getRow(size_type row) const {
 #ifdef EMME_DEBUG
         if (row < 0 || row >= rows_) {
             throw std::out_of_range("Matrix row index out of bounds");
