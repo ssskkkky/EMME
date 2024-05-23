@@ -315,10 +315,10 @@ auto bessel_i_helper(const T& z) {
         y_tmp = 2. * n / z * y0 + y1;
         y1 = y0;
         y0 = y_tmp;
-        mu += 2. * (n % 2 == 0 ? 1 : -1) * (std::real(z) < 0 ? -1 : 1) * y1;
+        mu += 2. * (std::real(z) < 0 ? 1 - 2 * (n & 1) : 1) * y1;
     }
 
-    mu = std::exp(std::real(z) < 0 ? -z : z) * (mu + y0);
+    mu = std::exp(std::real(z) < 0 ? z : -z) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
 
