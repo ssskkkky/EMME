@@ -29,90 +29,6 @@ std::pair<value_type, matrix_type> NewtonTraceIterationSecantMethod(
     const Grid<double>& grid_info,
     const int&);
 
-std::vector<value_type> NullSpace(const matrix_type& input, const double tol);
-
-// Function representing the nonlinear eigenvalue problem (NLEP)
-// F(lambda, x) = 0
-template <typename FuncA, typename FuncB>
-void F(const value_type& tau,
-       const value_type& beta_e,
-       const value_type& lambda,
-       const FuncA& kappa_f_tau_all,
-       const FuncB& bi,
-       const Matrix<double>& coeff_matrix,
-       const Grid<double>& grid_info,
-       matrix_type& mat) {
-    // Implement the NLEP function here
-    // This function should return a vector representing the residual
-    // (F(lambda, x)) for a given eigenvalue (lambda) and eigenvector (x)
-    // using namespace std::chrono;
-#ifdef EMME_DEBUG
-    if (mat.getRows() != 2 * grid_info.npoints ||
-        mat.getCols() != 2 * grid_info.npoints) {
-        throw std::runtime_error("Matrix dimension and grid length mismatch.");
-    }
-#endif
-
-    auto& thread_pool = DedicatedThreadPool<void>::get_instance();
-    std::vector<std::future<void>> res;
-
-    for (unsigned int i = 0; i < grid_info.npoints; i++) {
-        for (unsigned int j = i; j < grid_info.npoints; j++) {
-            if (i == j) {
-                mat(i, j) = (1.0 + 1.0 / tau);
-                mat(i, j + grid_info.npoints) = 0.0;
-                mat(i + grid_info.npoints, j) = 0.0;
-                mat(i + grid_info.npoints, j + grid_info.npoints) =
-                    (2.0 * tau) / beta_e * bi(grid_info.grid[i]);
-            } else {
-                res.push_back(thread_pool.queue_task([&, i, j]() {
-                    mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
-                                                 grid_info.grid[j], lambda) *
-                                coeff_matrix(i, j) * grid_info.dx;
-                    mat(i, j + grid_info.npoints) =
-                        kappa_f_tau_all(1, grid_info.grid[i], grid_info.grid[j],
-                                        lambda) *
-                        grid_info.dx;
-
-                    mat(i + grid_info.npoints, j + grid_info.npoints) =
-                        kappa_f_tau_all(2, grid_info.grid[i], grid_info.grid[j],
-                                        lambda) *
-                        grid_info.dx;
-
-                    mat(j, i) = mat(i, j);
-
-                    mat(j, i + grid_info.npoints) =
-                        -mat(i, j + grid_info.npoints);
-                    mat(j + grid_info.npoints, i + grid_info.npoints) =
-                        mat(i + grid_info.npoints, j + grid_info.npoints);
-
-                    mat(i + grid_info.npoints, j) =
-                        mat(j, i + grid_info.npoints);
-
-                    mat(j + grid_info.npoints, i) =
-                        mat(i, j + grid_info.npoints);
-                }));
-            }
-        }
-    }
-    for (auto& f : res) { f.get(); }
-}
-
-// template <typename FuncA, typename FuncB>
-// matrix_type F(const value_type& tau,
-//               const value_type& beta_e,
-//               const value_type& lambda,
-//               const FuncA& kappa_f_tau_all,
-//               const FuncB& bi,
-//               const Matrix<double>& coeff_matrix,
-//               const Grid<double>& grid_info) {
-//     matrix_type quadrature_matrix(2 * grid_info.npoints, 2 *
-//     grid_info.npoints); F(tau, beta_e, lambda, kappa_f_tau_all, bi,
-//     coeff_matrix, grid_info,
-//       quadrature_matrix);
-//     return quadrature_matrix;
-// }
-
 template <typename T>
 class EigenSolver {
    public:
@@ -270,9 +186,11 @@ class EigenSolver {
                    para.kappa_f_tau_e(i, eta, eta_p, omega);
         };
 
+#ifdef MULTI_THREAD
         auto& thread_pool = DedicatedThreadPool<void>::get_instance();
 
         std::vector<std::future<void>> res;
+#endif
 
         for (unsigned int i = 0; i < grid_info.npoints; i++) {
             for (unsigned int j = i; j < grid_info.npoints; j++) {
@@ -284,38 +202,65 @@ class EigenSolver {
                         (2.0 * para.tau) / para.beta_e *
                         para.bi(grid_info.grid[i]);
                 } else {
+#ifdef MULTI_THREAD
                     res.push_back(thread_pool.queue_task([&, i, j]() {
-                        mat(i, j) =
-                            -kappa_f_tau_all(0, grid_info.grid[i],
-                                             grid_info.grid[j], eigen_value) *
-                            coeff_matrix(i, j) * grid_info.dx;
-                        mat(i, j + grid_info.npoints) =
-                            kappa_f_tau_all(1, grid_info.grid[i],
-                                            grid_info.grid[j], eigen_value) *
-                            grid_info.dx;
+#endif
+                        if (std::abs(grid_info.grid[i] - grid_info.grid[j]) >
+                            20.0) {
+                            mat(i, j) = 0.;
+                            mat(i, j + grid_info.npoints) = 0.;
+                            mat(i + grid_info.npoints, j + grid_info.npoints) =
+                                0.;
 
-                        mat(i + grid_info.npoints, j + grid_info.npoints) =
-                            kappa_f_tau_all(2, grid_info.grid[i],
-                                            grid_info.grid[j], eigen_value) *
-                            grid_info.dx;
+                            mat(j, i) = 0.;
 
-                        mat(j, i) = mat(i, j);
+                            mat(j, i + grid_info.npoints) = 0.;
+                            mat(j + grid_info.npoints, i + grid_info.npoints) =
+                                0.0;
 
-                        mat(j, i + grid_info.npoints) =
-                            -mat(i, j + grid_info.npoints);
-                        mat(j + grid_info.npoints, i + grid_info.npoints) =
-                            mat(i + grid_info.npoints, j + grid_info.npoints);
+                            mat(i + grid_info.npoints, j) = 0.;
 
-                        mat(i + grid_info.npoints, j) =
-                            mat(j, i + grid_info.npoints);
+                            mat(j + grid_info.npoints, i) = 0.;
+                        } else {
+                            mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
+                                                         grid_info.grid[j],
+                                                         eigen_value) *
+                                        coeff_matrix(i, j) * grid_info.dx;
+                            mat(i, j + grid_info.npoints) =
+                                kappa_f_tau_all(1, grid_info.grid[i],
+                                                grid_info.grid[j],
+                                                eigen_value) *
+                                grid_info.dx;
 
-                        mat(j + grid_info.npoints, i) =
-                            mat(i, j + grid_info.npoints);
+                            mat(i + grid_info.npoints, j + grid_info.npoints) =
+                                kappa_f_tau_all(2, grid_info.grid[i],
+                                                grid_info.grid[j],
+                                                eigen_value) *
+                                grid_info.dx;
+
+                            mat(j, i) = mat(i, j);
+
+                            mat(j, i + grid_info.npoints) =
+                                -mat(i, j + grid_info.npoints);
+                            mat(j + grid_info.npoints, i + grid_info.npoints) =
+                                mat(i + grid_info.npoints,
+                                    j + grid_info.npoints);
+
+                            mat(i + grid_info.npoints, j) =
+                                mat(j, i + grid_info.npoints);
+
+                            mat(j + grid_info.npoints, i) =
+                                mat(i, j + grid_info.npoints);
+                        }
+#ifdef MULTI_THREAD
                     }));
+#endif
                 }
             }
         }
+#ifdef MULTI_THREAD
         for (auto& f : res) { f.get(); }
+#endif
     }
 };
 #endif  // SOLVER_H

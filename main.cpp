@@ -6,13 +6,13 @@
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
-#include "fenv.h"
+// #include "fenv.h" //this is for check inf or nan
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
 
 int main() {
-    feenableexcept(FE_DIVBYZERO);
+    // feenableexcept(FE_DIVBYZERO);
     std::string filename = "emme.in";
     std::ifstream input_file(filename);
 
