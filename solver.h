@@ -98,19 +98,20 @@ void F(const value_type& tau,
     for (auto& f : res) { f.get(); }
 }
 
-template <typename FuncA, typename FuncB>
-matrix_type F(const value_type& tau,
-              const value_type& beta_e,
-              const value_type& lambda,
-              const FuncA& kappa_f_tau_all,
-              const FuncB& bi,
-              const Matrix<double>& coeff_matrix,
-              const Grid<double>& grid_info) {
-    matrix_type quadrature_matrix(2 * grid_info.npoints, 2 * grid_info.npoints);
-    F(tau, beta_e, lambda, kappa_f_tau_all, bi, coeff_matrix, grid_info,
-      quadrature_matrix);
-    return quadrature_matrix;
-}
+// template <typename FuncA, typename FuncB>
+// matrix_type F(const value_type& tau,
+//               const value_type& beta_e,
+//               const value_type& lambda,
+//               const FuncA& kappa_f_tau_all,
+//               const FuncB& bi,
+//               const Matrix<double>& coeff_matrix,
+//               const Grid<double>& grid_info) {
+//     matrix_type quadrature_matrix(2 * grid_info.npoints, 2 *
+//     grid_info.npoints); F(tau, beta_e, lambda, kappa_f_tau_all, bi,
+//     coeff_matrix, grid_info,
+//       quadrature_matrix);
+//     return quadrature_matrix;
+// }
 
 template <typename T>
 class EigenSolver {
