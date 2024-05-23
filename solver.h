@@ -184,11 +184,10 @@ class EigenSolver {
                 col_index++;
             }
         }
-        return V.getCol(V.getCols());
+        return V.getCol(V.getCols() - 1);
     };
     void newtonTraceSecantIteration() {
-        matrixAssembler(eigen_matrix);
-        matrixDerivativeSecantAssembler();
+        eigen_matrix_old = eigen_matrix;
         const char* upper = "Upper";
         const lapack_int dim = eigen_matrix.getRows();
         lapack_int work_length = dim;
@@ -207,7 +206,6 @@ class EigenSolver {
                      &work_length, &info);
         d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
         eigen_value += d_eigen_value;
-        eigen_matrix_old = eigen_matrix;
 
         // if (info != 0) {
         //     if (info < 0) {
@@ -222,13 +220,16 @@ class EigenSolver {
         //     throw std::runtime_error("Linear solve failed");
         // };
         optimal_work_length = work[0].real();
+
+        matrixAssembler(eigen_matrix);
+        matrixDerivativeSecantAssembler();
     }
-    Parameters para;
+    const Parameters& para;
     value_type eigen_value;
     value_type d_eigen_value;
     double null_space_tol;
-    Matrix<double> coeff_matrix;
-    Grid<double> grid_info;
+    const Matrix<double>& coeff_matrix;
+    const Grid<double>& grid_info;
     matrix_type eigen_matrix;
     matrix_type eigen_matrix_old;
     matrix_type eigen_matrix_derivative;
@@ -243,78 +244,77 @@ class EigenSolver {
           null_space_tol(1e-1),
           coeff_matrix(coeff_matrix_input),
           grid_info(grid_info_input),
-          eigen_matrix(grid_info.len, grid_info.len),
-          eigen_matrix_old(grid_info.len, grid_info.len),
-          eigen_matrix_derivative(grid_info.len, grid_info.len) {
+          eigen_matrix(grid_info.npoints * 2, 2 * grid_info.npoints),
+          eigen_matrix_old(grid_info.npoints * 2, 2 * grid_info.npoints),
+          eigen_matrix_derivative(grid_info.npoints * 2,
+                                  2 * grid_info.npoints) {
         matrixAssembler(eigen_matrix_old);
         eigen_value += d_eigen_value;
-        }
+        matrixAssembler(eigen_matrix);
+        matrixDerivativeSecantAssembler();
+    }
 
-        void matrixAssembler(matrix_type& mat) {
+    void matrixAssembler(matrix_type& mat) {
 #ifdef EMME_DEBUG
-            if (mat.getRows() != 2 * grid_info.npoints ||
-                mat.getCols() != 2 * grid_info.npoints) {
-                throw std::runtime_error(
-                    "Matrix dimension and grid length mismatch.");
-            }
+        if (mat.getRows() != 2 * grid_info.npoints ||
+            mat.getCols() != 2 * grid_info.npoints) {
+            throw std::runtime_error(
+                "Matrix dimension and grid length mismatch.");
+        }
 #endif
 
-            static auto kappa_f_tau_all = [&](unsigned i, double eta,
-                                              double eta_p,
-                                              std::complex<double> omega) {
-                return para.kappa_f_tau(i, eta, eta_p, omega) +
-                       para.kappa_f_tau_e(i, eta, eta_p, omega);
-            };
+        static auto kappa_f_tau_all = [&](unsigned i, double eta, double eta_p,
+                                          std::complex<double> omega) {
+            return para.kappa_f_tau(i, eta, eta_p, omega) +
+                   para.kappa_f_tau_e(i, eta, eta_p, omega);
+        };
 
-            auto& thread_pool = DedicatedThreadPool<void>::get_instance();
+        auto& thread_pool = DedicatedThreadPool<void>::get_instance();
 
-            std::vector<std::future<void>> res;
+        std::vector<std::future<void>> res;
 
-            for (unsigned int i = 0; i < grid_info.npoints; i++) {
-                for (unsigned int j = i; j < grid_info.npoints; j++) {
-                    if (i == j) {
-                        mat(i, j) = (1.0 + 1.0 / para.tau);
-                        mat(i, j + grid_info.npoints) = 0.0;
-                        mat(i + grid_info.npoints, j) = 0.0;
+        for (unsigned int i = 0; i < grid_info.npoints; i++) {
+            for (unsigned int j = i; j < grid_info.npoints; j++) {
+                if (i == j) {
+                    mat(i, j) = (1.0 + 1.0 / para.tau);
+                    mat(i, j + grid_info.npoints) = 0.0;
+                    mat(i + grid_info.npoints, j) = 0.0;
+                    mat(i + grid_info.npoints, j + grid_info.npoints) =
+                        (2.0 * para.tau) / para.beta_e *
+                        para.bi(grid_info.grid[i]);
+                } else {
+                    res.push_back(thread_pool.queue_task([&, i, j]() {
+                        mat(i, j) =
+                            -kappa_f_tau_all(0, grid_info.grid[i],
+                                             grid_info.grid[j], eigen_value) *
+                            coeff_matrix(i, j) * grid_info.dx;
+                        mat(i, j + grid_info.npoints) =
+                            kappa_f_tau_all(1, grid_info.grid[i],
+                                            grid_info.grid[j], eigen_value) *
+                            grid_info.dx;
+
                         mat(i + grid_info.npoints, j + grid_info.npoints) =
-                            (2.0 * para.tau) / para.beta_e *
-                            para.bi(grid_info.grid[i]);
-                    } else {
-                        res.push_back(thread_pool.queue_task([&, i, j]() {
-                            mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
-                                                         grid_info.grid[j],
-                                                         eigen_value) *
-                                        coeff_matrix(i, j) * grid_info.dx;
-                            mat(i, j + grid_info.npoints) =
-                                kappa_f_tau_all(1, grid_info.grid[i],
-                                                grid_info.grid[j],
-                                                eigen_value) *
-                                grid_info.dx;
+                            kappa_f_tau_all(2, grid_info.grid[i],
+                                            grid_info.grid[j], eigen_value) *
+                            grid_info.dx;
 
-                            mat(i + grid_info.npoints, j + grid_info.npoints) =
-                                kappa_f_tau_all(2, grid_info.grid[i],
-                                                grid_info.grid[j],
-                                                eigen_value) *
-                                grid_info.dx;
+                        mat(j, i) = mat(i, j);
 
-                            mat(j, i) = mat(i, j);
+                        mat(j, i + grid_info.npoints) =
+                            -mat(i, j + grid_info.npoints);
+                        mat(j + grid_info.npoints, i + grid_info.npoints) =
+                            mat(i + grid_info.npoints, j + grid_info.npoints);
 
-                            mat(j, i + grid_info.npoints) =
-                                -mat(i, j + grid_info.npoints);
-                            mat(j + grid_info.npoints, i + grid_info.npoints) =
-                                mat(i + grid_info.npoints,
-                                    j + grid_info.npoints);
+                        mat(i + grid_info.npoints, j) =
+                            mat(j, i + grid_info.npoints);
 
-                            mat(i + grid_info.npoints, j) =
-                                mat(j, i + grid_info.npoints);
-
-                            mat(j + grid_info.npoints, i) =
-                                mat(i, j + grid_info.npoints);
-                        }));
-                    }
+                        mat(j + grid_info.npoints, i) =
+                            mat(i, j + grid_info.npoints);
+                    }));
                 }
             }
-            for (auto& f : res) { f.get(); }
         }
+        for (auto& f : res) { f.get(); }
+    }
 };
 #endif  // SOLVER_H

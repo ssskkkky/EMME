@@ -37,6 +37,14 @@ Parameters::Parameters(double q_input,
       omega_s_e(-tau * omega_s_i),
       omega_d_bar(2.0 * epsilon_n * omega_s_i) {}
 
+void Parameters::parameterInit() {
+    alpha = q * q * R * beta_e / (epsilon_n * R) *
+            ((1 + eta_e) + 1 / tau * (1 + eta_i));
+    omega_s_i = -(std::sqrt(b_theta) * vt) / (epsilon_n * R);
+    omega_s_e = -tau * omega_s_i;
+    omega_d_bar = 2.0 * epsilon_n * omega_s_i;
+};
+
 double Parameters::g_integration_f(double eta) const {
     return -((alpha * eta) / 2.0) - shat * eta * std::cos(eta) + std::sin(eta) +
            shat * std::sin(eta) + 0.25 * alpha * std::sin(2.0 * eta);
@@ -63,7 +71,7 @@ std::complex<double> Parameters::lambda_f_tau(double eta,
 }
 
 std::array<std::complex<double>, 5>
-Parameters::integration_lambda_arg(double eta, double eta_p, double tau) {
+Parameters::integration_lambda_arg(double eta, double eta_p, double tau) const {
     std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
     std::complex<double> arg =
         std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
@@ -120,7 +128,7 @@ std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
 std::complex<double> Parameters::kappa_f_tau(unsigned int m,
                                              double eta,
                                              double eta_p,
-                                             std::complex<double> omega)
+                                             std::complex<double> omega) const
 
 {
     // Define the integrand function
@@ -186,7 +194,7 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
 std::complex<double> Parameters::kappa_f_tau_e(unsigned int m,
                                                double eta,
                                                double eta_p,
-                                               std::complex<double> omega)
+                                               std::complex<double> omega) const
 
 {
     switch (m) {

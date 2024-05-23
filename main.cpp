@@ -88,15 +88,35 @@ int main() {
 
     double tol = 1e-6;
 
-    auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
-        para, omega_initial_guess, coeff_matrix, grid_info);
-
     for (unsigned int i = 0; i <= 40; i++) {
+        Parameters para(q_input + i * 0.05, shat_input, tau_input,
+                        epsilon_n_input, eta_i_input, eta_e_input,
+                        b_theta_input, beta_e_input, R_input, vt_input,
+                        length_input, theta_input, npoints_input,
+                        iteration_step_limit_input);
+
         std::cout << para.q << std::endl;
+
+        auto length = para.length;
+        auto npoints = para.npoints;
+
+        Grid<double> grid_info(length, npoints);
+
+        // Matrix iter_matrix =
+        //     matrix_assembler(tau, omega_iter, kappa_f, coeff_matrix,
+        //     grid_info);
+
+        // Matrix coeff_matrix =
+        //     singularity_handler(grid_info, gauss_order, interpolation_order);
+
+        Matrix<double> coeff_matrix = SingularityHandler(npoints);
+
+        auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
+            para, omega_initial_guess, coeff_matrix, grid_info);
 
         for (int j = 0; j <= para.iteration_step_limit; j++) {
             eigen_solver.newtonTraceSecantIteration();
-            std::cout << eigen_solver.eigen_value;
+            std::cout << eigen_solver.eigen_value << std::endl;
             if (std::abs(eigen_solver.d_eigen_value) <
                 std::abs(tol * eigen_solver.eigen_value)) {
                 break;
@@ -107,15 +127,17 @@ int main() {
                   << eigen_solver.eigen_value.imag() << std::endl;
         eigenvalue << eigen_solver.eigen_value.real() << " "
                    << eigen_solver.eigen_value.imag() << std::endl;
-        auto null_space = eigen_solver.nullSpace();
+        // auto null_space = eigen_solver.nullSpace();
         if (!outfile.is_open()) {
             // Handle error
             return 1;
         }
 
-        outfile << null_space;
-        para.q += 0.05;
+        // // outfile << null_space;
+        // para.q += 0.05;
+        // para.parameterInit();
         omega_initial_guess = eigen_solver.eigen_value;
+        std::cout << omega_initial_guess;
     }
 
     outfile.close();
