@@ -231,9 +231,8 @@ class EigenSolver {
 
                         mat(j + grid_info.npoints, i) =
                             mat(i, j + grid_info.npoints);
-                    }
 #ifdef MULTI_THREAD
-                                                         ));
+                    }));
 #endif
                 }
             }
