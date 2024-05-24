@@ -42,7 +42,7 @@ struct Parameters {
     double omega_s_i;    // Calculated in constructor
     double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
-
+    void parameterInit();
     double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
@@ -67,20 +67,19 @@ struct Parameters {
     std::complex<double> kappa_f_tau(unsigned int m,
                                      double eta,
                                      double eta_p,
-                                     std::complex<double>);
+                                     std::complex<double>) const;
 
     std::complex<double> kappa_f_tau_e(unsigned int m,
                                        double eta,
                                        double eta_p,
-                                       std::complex<double>);
+                                       std::complex<double>) const;
 
    private:
     // No private member functions needed (assuming this is just a data
     // structure)
 
-    std::array<std::complex<double>, 5> integration_lambda_arg(double eta,
-                                                               double eta_p,
-                                                               double tau);
+    std::array<std::complex<double>, 5>
+    integration_lambda_arg(double eta, double eta_p, double tau) const;
 
     /* std::complex<double> lambda_f_tau_term; */
     /* std::complex<double> arg; */
