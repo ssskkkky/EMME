@@ -205,55 +205,35 @@ class EigenSolver {
 #ifdef MULTI_THREAD
                     res.push_back(thread_pool.queue_task([&, i, j]() {
 #endif
-                        if (std::abs(grid_info.grid[i] - grid_info.grid[j]) >
-                            20.0) {
-                            mat(i, j) = 0.;
-                            mat(i, j + grid_info.npoints) = 0.;
-                            mat(i + grid_info.npoints, j + grid_info.npoints) =
-                                0.;
+                        mat(i, j) =
+                            -kappa_f_tau_all(0, grid_info.grid[i],
+                                             grid_info.grid[j], eigen_value) *
+                            coeff_matrix(i, j) * grid_info.dx;
+                        mat(i, j + grid_info.npoints) =
+                            kappa_f_tau_all(1, grid_info.grid[i],
+                                            grid_info.grid[j], eigen_value) *
+                            grid_info.dx;
 
-                            mat(j, i) = 0.;
+                        mat(i + grid_info.npoints, j + grid_info.npoints) =
+                            kappa_f_tau_all(2, grid_info.grid[i],
+                                            grid_info.grid[j], eigen_value) *
+                            grid_info.dx;
 
-                            mat(j, i + grid_info.npoints) = 0.;
-                            mat(j + grid_info.npoints, i + grid_info.npoints) =
-                                0.0;
+                        mat(j, i) = mat(i, j);
 
-                            mat(i + grid_info.npoints, j) = 0.;
+                        mat(j, i + grid_info.npoints) =
+                            -mat(i, j + grid_info.npoints);
+                        mat(j + grid_info.npoints, i + grid_info.npoints) =
+                            mat(i + grid_info.npoints, j + grid_info.npoints);
 
-                            mat(j + grid_info.npoints, i) = 0.;
-                        } else {
-                            mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
-                                                         grid_info.grid[j],
-                                                         eigen_value) *
-                                        coeff_matrix(i, j) * grid_info.dx;
-                            mat(i, j + grid_info.npoints) =
-                                kappa_f_tau_all(1, grid_info.grid[i],
-                                                grid_info.grid[j],
-                                                eigen_value) *
-                                grid_info.dx;
+                        mat(i + grid_info.npoints, j) =
+                            mat(j, i + grid_info.npoints);
 
-                            mat(i + grid_info.npoints, j + grid_info.npoints) =
-                                kappa_f_tau_all(2, grid_info.grid[i],
-                                                grid_info.grid[j],
-                                                eigen_value) *
-                                grid_info.dx;
-
-                            mat(j, i) = mat(i, j);
-
-                            mat(j, i + grid_info.npoints) =
-                                -mat(i, j + grid_info.npoints);
-                            mat(j + grid_info.npoints, i + grid_info.npoints) =
-                                mat(i + grid_info.npoints,
-                                    j + grid_info.npoints);
-
-                            mat(i + grid_info.npoints, j) =
-                                mat(j, i + grid_info.npoints);
-
-                            mat(j + grid_info.npoints, i) =
-                                mat(i, j + grid_info.npoints);
-                        }
+                        mat(j + grid_info.npoints, i) =
+                            mat(i, j + grid_info.npoints);
+                    }
 #ifdef MULTI_THREAD
-                    }));
+                                                         ));
 #endif
                 }
             }
