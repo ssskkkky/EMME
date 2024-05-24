@@ -96,7 +96,7 @@ int main() {
             return 1;
         }
 
-        // outfile << null_space;
+        outfile << null_space;
         para.q += 0.05;
         para.parameterInit();
         omega_initial_guess = eigen_solver.eigen_value;
