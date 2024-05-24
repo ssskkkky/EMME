@@ -326,15 +326,17 @@ auto bessel_i_helper(const T& z) {
 
 template <typename T>
 std::ostream& operator<<(std::ostream& outputStream,
-                         const std::vector<T>& vectorObj) {
+                         const std::vector<std::complex<T>>& vectorObj) {
     // Print all the elements of vector using loop
-    for (auto elem : vectorObj) { outputStream << elem << " "; }
+    for (auto elem : vectorObj) {
+        outputStream << elem.real() << " " << elem.imag() << " ";
+    }
     return outputStream;
 }
 
 template <typename T, typename A>
 std::ostream& operator<<(std::ostream& output_stream,
-                         const Matrix<T, A>& matrix) {
+                         const Matrix<std::complex<T>, A>& matrix) {
     for (unsigned int i = 0; i < matrix.getRows(); i++) {
         for (unsigned int j = 0; j < matrix.getCols(); j++) {
             output_stream << matrix(i, j).real() << " " << matrix(i, j).imag()

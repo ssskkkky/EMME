@@ -27,7 +27,7 @@ HDRS = *.h
 $(TARGET): $(OBJS) $(HDRS)
 	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) $(DEBUGFLAGS) 
 
-%.o: %.cpp
+%.o: %.cpp %.h
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS)  $(LAPACK_INCLUDE) -c $< -o $@
 
 # Clean the project (removes the executable)
