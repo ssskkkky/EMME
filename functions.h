@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cmath>
+#include <complex>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -212,35 +213,41 @@ struct gauss_kronrod : gauss_kronrod_detail<N> {
                                        Tx a,
                                        Tx b,
                                        size_t max_subdivide,
-                                       Tx local_abs_tol,
-                                       Tx global_rel_tol)
-        -> decltype(std::declval<Func>()(std::declval<Tx>())) {
-        const Tx mid = (b + a) / 2;
-        const Tx scale = (b - a) / 2;
-        auto normalize_func = [&](Tx x) { return func(scale * x + mid); };
+                                       Tx abs_tol,
+                                       Tx global_rel_tol,
+                                       Tx precision_goal) {
+        // call stack
+        std::vector<std::array<Tx, 2>> pending_intervals;
+        // quadrature sum
+        decltype(std::declval<Func>()(std::declval<Tx>())) sum{};
 
-        auto result = gauss_kronrod_basic(normalize_func);
-        auto integral = result.first * scale;
-        auto err = result.second * scale;
-        if (std::fpclassify(local_abs_tol) == FP_ZERO) {
-            local_abs_tol = std::abs(global_rel_tol * integral);
+        Tx inv_scale = 2. / (b - a);
+        pending_intervals.push_back({a, b});
+        while (!pending_intervals.empty()) {
+            auto [l, r] = pending_intervals.back();
+            pending_intervals.pop_back();
+
+            const Tx mid = (r + l) / 2;
+            const Tx scale = (r - l) / 2;
+            auto normalize_func = [&](Tx x) { return func(scale * x + mid); };
+            auto result = gauss_kronrod_basic(normalize_func);
+            auto integral = result.first * scale;
+            auto err = result.second * scale;
+
+            if (std::fpclassify(abs_tol) == FP_ZERO) {
+                abs_tol = std::abs(global_rel_tol * integral);
+            }
+            if (std::ldexp(scale, max_subdivide) > 0.99 * (b - a) &&
+                err > abs_tol * inv_scale + precision_goal &&
+                err > std::abs(global_rel_tol * integral) + precision_goal) {
+                pending_intervals.push_back({mid, r});
+                pending_intervals.push_back({l, mid});
+            } else {
+                sum += integral;
+            }
         }
 
-        if (max_subdivide > 0 && err > local_abs_tol &&
-            err > std::abs(global_rel_tol * integral)) {
-            return gauss_kronrod_adaptive(func, a, mid, max_subdivide - 1,
-                                          local_abs_tol / 2, global_rel_tol) +
-                   gauss_kronrod_adaptive(func, mid, b, max_subdivide - 1,
-                                          local_abs_tol / 2, global_rel_tol);
-        }
-
-#ifdef _TRACE
-        std::cout << "[TRACE] Gauss-Kronrod subdivide stopped at [" << a << ", "
-                  << b << "] with remaining subdivision = " << max_subdivide
-                  << ", err = " << err << '\n';
-#endif
-
-        return integral;
+        return sum;
     }
 };
 
@@ -251,22 +258,25 @@ auto integrate(const Func& func,
                Ta a,
                Tb b,
                Te tol,
-               size_t max_subdivide = 15) {
+               std::size_t max_subdivide = 15,
+               Te prec = std::numeric_limits<double>::epsilon()) {
     using n_type = typename std::common_type<numeric_t<Ta>, numeric_t<Tb>,
                                              numeric_t<Te>>::type;
-    using impl = detail::gauss_kronrod<31, n_type>;
-    if (b + 1 == b) {
-        // b is infinity
+    using impl = detail::gauss_kronrod<15, n_type>;
+    if (std::fpclassify(a) == FP_INFINITE ||
+        std::fpclassify(b) == FP_INFINITE) {
+        // either of the endpoints is infinity
         return impl::gauss_kronrod_adaptive(
             [&](n_type x) {
                 const n_type c = std::cos(x);
                 return func(std::tan(x)) / (c * c);
             },
             std::atan(static_cast<n_type>(a)),
-            std::atan(static_cast<n_type>(b)), max_subdivide, n_type{}, tol);
+            std::atan(static_cast<n_type>(b)), max_subdivide, n_type{}, tol,
+            prec);
     } else {
         return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide, n_type{},
-                                            tol);
+                                            tol, prec);
     }
 }
 
@@ -282,32 +292,13 @@ auto integrate_coarse(const Func& func,
     return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide, Tx{}, tol);
 }
 
-/**
- * @brief Modified Bessel function of the first kind with integer order and
- * complex argument. The evaluation is done using contour integral.
- *
- * @param i order
- * @param z argument
- * @param eps accuracy, default to be 1e-7
- */
 template <typename T>
-auto bessel_ic(int i, T z, double eps = 1.e-7) {
-    using f_type = get_float_t<T>;
-    constexpr auto pi = static_cast<f_type>(M_PI);
-    return integrate(
-               [=](f_type theta) {
-                   return std::exp(z * std::cos(theta)) * std::cos(i * theta);
-               },
-               0, pi, static_cast<f_type>(eps)) /
-           pi;
-}
-
-template <typename T>
-
 auto bessel_i_helper(const T& z) {
     constexpr double THRESHOLD = 2.e+7;
     int n = std::floor(std::abs(z)) + 1;
-    T p0(0, 0), p1(1, 0), p_tmp;
+    T p0 = 0.;
+    T p1 = 1.;
+    T p_tmp{};
     double test_1 = std::max(
         std::sqrt(THRESHOLD * std::abs(p1) * std::abs(p0 - 2.0 * n / z * p1)),
         THRESHOLD);
@@ -324,10 +315,10 @@ auto bessel_i_helper(const T& z) {
         y_tmp = 2. * n / z * y0 + y1;
         y1 = y0;
         y0 = y_tmp;
-        mu += 2. * (n % 2 == 0 ? 1 : -1) * (z.real() < 0 ? -1 : 1) * y1;
+        mu += 2. * (std::real(z) < 0 ? 1 - 2 * (n & 1) : 1) * y1;
     }
 
-    mu = std::exp(z.real() < 0 ? -z : z) * (mu + y0);
+    mu = std::exp(std::real(z) < 0 ? z : -z) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
 
