@@ -88,6 +88,42 @@ struct Parameters {
     /* std::complex<double> bessel_1; */
 };
 
-struct Stellarator : Parameters {};
+struct Stellarator : public Parameters {
+    Stellarator(double q_input,
+                double shat_input,
+                double tau_input,
+                double epsilon_n_input,
+                double eta_i_input,
+                double eta_e_input,
+                double b_theta_input,
+                double beta_e_input,
+                double R_input,
+                double vt_input,
+                double length_input,
+                double theta_input,
+                int npoints_input,
+                int iteration_step_limit_input,
+                double eta_k_input,
+                int lh_input,
+                int mh_input,
+                double epsilon_h_t_input,
+                double alpha_0_input,
+                double r_over_R_input);
+
+    double eta_k;
+    int lh;
+    int mh;
+    double epsilon_h_t;
+    double alpha_0;
+    double r_over_R;
+    double deltap;
+    double deltapp;
+    double alpha_p;
+    double beta_e_p;
+    double curvature_aver;
+    double bi(double eta) const;
+    double g_integration_f(double eta) const;
+    double sigma_f(double eta) const;
+};
 
 #endif

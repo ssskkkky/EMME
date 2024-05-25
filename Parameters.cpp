@@ -1,6 +1,8 @@
 #include "Parameters.h"
+
 #include <cmath>
 #include <tuple>
+
 #include "functions.h"
 
 Parameters::Parameters(double q_input,
@@ -214,4 +216,320 @@ std::complex<double> Parameters::kappa_f_tau_e(unsigned int m,
             // Handle unexpected mode (throw exception or return special value)
             throw std::invalid_argument("Unsupported mode value");
     }
+}
+
+Stellarator::Stellarator(double q_input,
+                         double shat_input,
+                         double tau_input,
+                         double epsilon_n_input,
+                         double eta_i_input,
+                         double eta_e_input,
+                         double b_theta_input,
+                         double beta_e_input,
+                         double R_input,
+                         double vt_input,
+                         double length_input,
+                         double theta_input,
+                         int npoints_input,
+                         int iteration_step_limit_input,
+                         double eta_k_input,
+                         int lh_input,
+                         int mh_input,
+                         double epsilon_h_t_input,
+                         double alpha_0_input,
+                         double r_over_R_input)
+    : Parameters(q_input,
+                 shat_input,
+                 tau_input,
+                 epsilon_n_input,
+                 eta_i_input,
+                 eta_e_input,
+                 b_theta_input,
+                 beta_e_input,
+                 R_input,
+                 vt_input,
+                 length_input,
+                 theta_input,
+                 npoints_input,
+                 iteration_step_limit_input),
+      eta_k(eta_k_input),
+      lh(lh_input),
+      mh(mh_input),
+      epsilon_h_t(epsilon_h_t_input),
+      alpha_0(alpha_0_input),
+      r_over_R(r_over_R_input),
+      deltap(-0.25 * alpha),
+      deltapp(-0.25 * alpha_p),
+      alpha_p(beta_e_p *
+              (q * q / epsilon_n * (1. + eta_e + (1. + eta_i) / tau))),
+      beta_e_p(beta_e * (1.0 + eta_e) / (epsilon_n * R)) {}
+
+double Stellarator::sigma_f(double eta) const {
+    return shat * (eta - eta_k) +
+           (deltap * (1 + shat) + deltapp * epsilon_n * R) * std::sin(eta);
+}
+
+double Stellarator::bi(double eta) const {
+    return b_theta * (1.0 + pow(sigma_f(eta), 2));
+}
+double Stellarator::g_integration_f(double eta) const {
+    return -0.5 *
+           (deltap * std::pow(lh, 3) * q * eta -
+            deltap * std::pow(lh, 5) * q * eta -
+            2 * deltap * std::pow(lh, 2) * mh * std::pow(q, 2) * eta +
+            4 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * eta +
+            deltap * lh * std::pow(mh, 2) * std::pow(q, 3) * eta -
+            6 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                eta +
+            4 * deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                eta -
+            deltap * lh * std::pow(mh, 4) * std::pow(q, 5) * eta +
+            4 * std::pow(lh, 2) * mh * r_over_R * eta -
+            4 * std::pow(lh, 4) * mh * r_over_R * eta -
+            8 * lh * std::pow(mh, 2) * q * r_over_R * eta +
+            16 * std::pow(lh, 3) * std::pow(mh, 2) * q * r_over_R * eta +
+            4 * std::pow(mh, 3) * std::pow(q, 2) * r_over_R * eta -
+            24 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 2) * r_over_R *
+                eta +
+            16 * lh * std::pow(mh, 4) * std::pow(q, 3) * r_over_R * eta -
+            4 * std::pow(mh, 5) * std::pow(q, 4) * r_over_R * eta +
+            3 * deltap * std::pow(lh, 3) * q * shat * eta -
+            3 * deltap * std::pow(lh, 5) * q * shat * eta -
+            6 * deltap * std::pow(lh, 2) * mh * std::pow(q, 2) * shat * eta +
+            12 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * shat * eta +
+            3 * deltap * lh * std::pow(mh, 2) * std::pow(q, 3) * shat * eta -
+            18 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                shat * eta +
+            12 * deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                shat * eta -
+            3 * deltap * lh * std::pow(mh, 4) * std::pow(q, 5) * shat * eta -
+            std::pow(lh, 2) * mh * r_over_R * shat * eta +
+            std::pow(lh, 4) * mh * r_over_R * shat * eta +
+            2 * lh * std::pow(mh, 2) * q * r_over_R * shat * eta -
+            4 * std::pow(lh, 3) * std::pow(mh, 2) * q * r_over_R * shat * eta -
+            std::pow(mh, 3) * std::pow(q, 2) * r_over_R * shat * eta +
+            6 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 2) * r_over_R *
+                shat * eta -
+            4 * lh * std::pow(mh, 4) * std::pow(q, 3) * r_over_R * shat * eta +
+            std::pow(mh, 5) * std::pow(q, 4) * r_over_R * shat * eta -
+            std::pow(lh, 3) * q * alpha * eta +
+            std::pow(lh, 5) * q * alpha * eta +
+            2 * std::pow(lh, 2) * mh * std::pow(q, 2) * alpha * eta -
+            4 * std::pow(lh, 4) * mh * std::pow(q, 2) * alpha * eta -
+            lh * std::pow(mh, 2) * std::pow(q, 3) * alpha * eta +
+            6 * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) * alpha *
+                eta -
+            4 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * alpha *
+                eta +
+            lh * std::pow(mh, 4) * std::pow(q, 5) * alpha * eta +
+            deltapp * std::pow(lh, 3) * q * R * epsilon_n * eta -
+            deltapp * std::pow(lh, 5) * q * R * epsilon_n * eta -
+            2 * deltapp * std::pow(lh, 2) * mh * std::pow(q, 2) * R *
+                epsilon_n * eta +
+            4 * deltapp * std::pow(lh, 4) * mh * std::pow(q, 2) * R *
+                epsilon_n * eta +
+            deltapp * lh * std::pow(mh, 2) * std::pow(q, 3) * R * epsilon_n *
+                eta -
+            6 * deltapp * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                R * epsilon_n * eta +
+            4 * deltapp * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                R * epsilon_n * eta -
+            deltapp * lh * std::pow(mh, 4) * std::pow(q, 5) * R * epsilon_n *
+                eta +
+            2 * std::pow(lh, 2) * q *
+                (-lh + std::pow(lh, 3) + mh * q - 3 * std::pow(lh, 2) * mh * q +
+                 3 * lh * std::pow(mh, 2) * std::pow(q, 2) -
+                 std::pow(mh, 3) * std::pow(q, 3)) *
+                shat * epsilon_h_t * (eta - eta_k) *
+                std::cos(lh * eta - mh * (alpha_0 + q * eta)) +
+            2 * std::pow(lh, 3) * q * std::sin(eta) -
+            2 * std::pow(lh, 5) * q * std::sin(eta) -
+            4 * std::pow(lh, 2) * mh * std::pow(q, 2) * std::sin(eta) +
+            8 * std::pow(lh, 4) * mh * std::pow(q, 2) * std::sin(eta) +
+            2 * lh * std::pow(mh, 2) * std::pow(q, 3) * std::sin(eta) -
+            12 * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                std::sin(eta) +
+            8 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                std::sin(eta) -
+            2 * lh * std::pow(mh, 4) * std::pow(q, 5) * std::sin(eta) +
+            2 * std::pow(lh, 3) * q * shat * std::sin(eta) -
+            2 * std::pow(lh, 5) * q * shat * std::sin(eta) -
+            4 * std::pow(lh, 2) * mh * std::pow(q, 2) * shat * std::sin(eta) +
+            8 * std::pow(lh, 4) * mh * std::pow(q, 2) * shat * std::sin(eta) +
+            2 * lh * std::pow(mh, 2) * std::pow(q, 3) * shat * std::sin(eta) -
+            12 * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) * shat *
+                std::sin(eta) +
+            8 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * shat *
+                std::sin(eta) -
+            2 * lh * std::pow(mh, 4) * std::pow(q, 5) * shat * std::sin(eta) +
+            lh * q * std::cos(eta) *
+                (2 * std::pow(lh - mh * q, 2) *
+                     (-1 + std::pow(lh, 2) - 2 * lh * mh * q +
+                      std::pow(mh, 2) * std::pow(q, 2)) *
+                     shat * (eta - eta_k) +
+                 (-std::pow(lh, 2) + std::pow(lh, 4) -
+                  std::pow(mh, 2) * std::pow(q, 2) +
+                  std::pow(mh, 4) * std::pow(q, 4)) *
+                     (deltap + deltap * shat + deltapp * R * epsilon_n) *
+                     std::sin(eta)) +
+            deltap * std::pow(lh, 2) * mh * std::pow(q, 2) * std::sin(2 * eta) -
+            2 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) *
+                std::sin(2 * eta) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                std::sin(2 * eta) -
+            2 * deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                std::sin(2 * eta) +
+            deltap * std::pow(lh, 2) * mh * std::pow(q, 2) * shat *
+                std::sin(2 * eta) -
+            2 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * shat *
+                std::sin(2 * eta) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                shat * std::sin(2 * eta) -
+            2 * deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                shat * std::sin(2 * eta) +
+            deltapp * std::pow(lh, 2) * mh * std::pow(q, 2) * R * epsilon_n *
+                std::sin(2 * eta) -
+            2 * deltapp * std::pow(lh, 4) * mh * std::pow(q, 2) * R *
+                epsilon_n * std::sin(2 * eta) +
+            3 * deltapp * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                R * epsilon_n * std::sin(2 * eta) -
+            2 * deltapp * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                R * epsilon_n * std::sin(2 * eta) -
+            2 * std::pow(lh, 3) * q * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            2 * std::pow(lh, 5) * q * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            2 * std::pow(lh, 2) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) -
+            6 * std::pow(lh, 4) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            6 * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) -
+            2 * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) -
+            2 * std::pow(lh, 2) * q * shat * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            2 * std::pow(lh, 4) * q * shat * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) -
+            4 * std::pow(lh, 3) * mh * std::pow(q, 2) * shat * epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            2 * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) * shat *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 4) * q * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 5) * q * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            2 * deltap * std::pow(lh, 3) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            3 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 4) * q * shat * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 5) * q * shat * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            2 * deltap * std::pow(lh, 3) * mh * std::pow(q, 2) * shat *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            3 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * shat *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltap * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) * shat *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                shat * epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * shat *
+                epsilon_h_t *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltapp * std::pow(lh, 4) * q * R * epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltapp * std::pow(lh, 5) * q * R * epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            2 * deltapp * std::pow(lh, 3) * mh * std::pow(q, 2) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            3 * deltapp * std::pow(lh, 4) * mh * std::pow(q, 2) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            deltapp * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) +
+            3 * deltapp * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                R * epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            deltapp * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin(mh * alpha_0 + eta - lh * eta + mh * q * eta) -
+            deltap * std::pow(lh, 4) * q * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            deltap * std::pow(lh, 5) * q * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            2 * deltap * std::pow(lh, 3) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            3 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltap * std::pow(lh, 4) * q * shat * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            deltap * std::pow(lh, 5) * q * shat * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            2 * deltap * std::pow(lh, 3) * mh * std::pow(q, 2) * shat *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            3 * deltap * std::pow(lh, 4) * mh * std::pow(q, 2) * shat *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) * shat *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            3 * deltap * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                shat * epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltap * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * shat *
+                epsilon_h_t *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltapp * std::pow(lh, 4) * q * R * epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            deltapp * std::pow(lh, 5) * q * R * epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            2 * deltapp * std::pow(lh, 3) * mh * std::pow(q, 2) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            3 * deltapp * std::pow(lh, 4) * mh * std::pow(q, 2) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltapp * std::pow(lh, 2) * std::pow(mh, 2) * std::pow(q, 3) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) +
+            3 * deltapp * std::pow(lh, 3) * std::pow(mh, 2) * std::pow(q, 3) *
+                R * epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta)) -
+            deltapp * std::pow(lh, 2) * std::pow(mh, 3) * std::pow(q, 4) * R *
+                epsilon_h_t * epsilon_n *
+                std::sin((1 + lh) * eta - mh * (alpha_0 + q * eta))) /
+           (lh * q * (-1 + lh - mh * q) * std::pow(lh - mh * q, 2) *
+            (1 + lh - mh * q))
+
+        ;
 }
