@@ -32,19 +32,11 @@ int main() {
     int iteration_step_limit_input;
     double initial_guess_real;
     double initial_guess_imag;
-    double eta_k_input;
-    int lh_input;
-    int mh_input;
-    double epsilon_h_t_input;
-    double alpha_0_input;
-    double r_over_R_input;
 
     input_file >> q_input >> shat_input >> tau_input >> epsilon_n_input >>
         eta_i_input >> eta_e_input >> b_theta_input >> beta_e_input >>
         R_input >> vt_input >> length_input >> theta_input >> npoints_input >>
-        iteration_step_limit_input >> initial_guess_real >>
-        initial_guess_imag >> eta_k_input >> lh_input >> mh_input >>
-        epsilon_h_t_input >> alpha_0_input >> r_over_R_input;
+        iteration_step_limit_input >> initial_guess_real >> initial_guess_imag;
 
     input_file.close();
 
@@ -63,17 +55,10 @@ int main() {
     std::complex<double> omega_initial_guess(initial_guess_real,
                                              initial_guess_imag);
 
-    // Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
-    //                 eta_i_input, eta_e_input, b_theta_input, beta_e_input,
-    //                 R_input, vt_input, length_input, theta_input,
-    //                 npoints_input, iteration_step_limit_input);
-
-    Stellarator para(q_input, shat_input, tau_input, epsilon_n_input,
-                     eta_i_input, eta_e_input, b_theta_input, beta_e_input,
-                     R_input, vt_input, length_input, theta_input,
-                     npoints_input, iteration_step_limit_input, eta_k_input,
-                     lh_input, mh_input, epsilon_h_t_input, alpha_0_input,
-                     r_over_R_input);
+    Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
+                    eta_i_input, eta_e_input, b_theta_input, beta_e_input,
+                    R_input, vt_input, length_input, theta_input, npoints_input,
+                    iteration_step_limit_input);
 
     auto length = para.length;
     auto npoints = para.npoints;
@@ -87,10 +72,10 @@ int main() {
 
     double tol = 1e-6;
 
-    for (unsigned int i = 0; i <= 10; i++) {
+    for (unsigned int i = 0; i <= 40; i++) {
         auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
             para, omega_initial_guess, coeff_matrix, grid_info);
-        std::cout << eigen_solver.para.beta_e << std::endl;
+        std::cout << eigen_solver.para.q << std::endl;
 
         for (int j = 0; j <= para.iteration_step_limit; j++) {
             eigen_solver.newtonTraceSecantIteration();
@@ -113,7 +98,7 @@ int main() {
         outfile << null_space;
         flush(eigenvalue);
         flush(outfile);
-        para.beta_e += 0.0005;
+        para.q += 0.05;
         para.parameterInit();
         omega_initial_guess = eigen_solver.eigen_value;
     }
