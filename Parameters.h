@@ -42,11 +42,11 @@ struct Parameters {
     double omega_s_i;    // Calculated in constructor
     double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
-    void parameterInit();
-    double g_integration_f(double eta) const;
+    virtual void parameterInit();
+    virtual double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
-    double bi(double eta) const;
+    virtual double bi(double eta) const;
 
     std::complex<double> lambda_f_tau(double eta,
                                       double eta_p,
@@ -117,13 +117,14 @@ struct Stellarator : public Parameters {
     double alpha_0;
     double r_over_R;
     double deltap;
-    double deltapp;
-    double alpha_p;
     double beta_e_p;
+    double alpha_p;
+    double deltapp;
     double curvature_aver;
-    double bi(double eta) const;
-    double g_integration_f(double eta) const;
+    double bi(double eta) const override;
+    double g_integration_f(double eta) const override;
     double sigma_f(double eta) const;
+    void parameterInit() override;
 };
 
 #endif

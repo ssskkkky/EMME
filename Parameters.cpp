@@ -259,10 +259,12 @@ Stellarator::Stellarator(double q_input,
       alpha_0(alpha_0_input),
       r_over_R(r_over_R_input),
       deltap(-0.25 * alpha),
-      deltapp(-0.25 * alpha_p),
+      beta_e_p(beta_e * (1.0 + eta_e) / (epsilon_n * R)),
       alpha_p(beta_e_p *
               (q * q / epsilon_n * (1. + eta_e + (1. + eta_i) / tau))),
-      beta_e_p(beta_e * (1.0 + eta_e) / (epsilon_n * R)) {}
+      deltapp(-0.25 * alpha_p),
+      curvature_aver(mh / lh * r_over_R / (q * R) * (4.0 - shat) +
+                     (-alpha + 2 * shat * deltap + 0) / R) {}
 
 double Stellarator::sigma_f(double eta) const {
     return shat * (eta - eta_k) +
@@ -272,6 +274,23 @@ double Stellarator::sigma_f(double eta) const {
 double Stellarator::bi(double eta) const {
     return b_theta * (1.0 + pow(sigma_f(eta), 2));
 }
+
+void Stellarator::parameterInit() {
+    alpha = q * q * R * beta_e / (epsilon_n * R) *
+            ((1 + eta_e) + 1 / tau * (1 + eta_i));
+    omega_s_i = -(std::sqrt(b_theta) * vt) / (epsilon_n * R);
+    omega_s_e = -tau * omega_s_i;
+    omega_d_bar = 2.0 * epsilon_n * omega_s_i;
+
+    deltap = -0.25 * alpha;
+    beta_e_p = beta_e * (1.0 + eta_e) / (epsilon_n * R);
+    alpha_p =
+        beta_e_p * (q * q / epsilon_n * (1. + eta_e + (1. + eta_i) / tau));
+    deltapp = -0.25 * alpha_p;
+    curvature_aver = mh / lh * r_over_R / (q * R) * (4.0 - shat) +
+                     (-alpha + 2 * shat * deltap + 0) / R;
+};
+
 double Stellarator::g_integration_f(double eta) const {
     return -0.5 *
            (deltap * std::pow(lh, 3) * q * eta -

@@ -87,10 +87,10 @@ int main() {
 
     double tol = 1e-6;
 
-    for (unsigned int i = 0; i <= 0; i++) {
+    for (unsigned int i = 0; i <= 10; i++) {
         auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
             para, omega_initial_guess, coeff_matrix, grid_info);
-        std::cout << eigen_solver.para.q << std::endl;
+        std::cout << eigen_solver.para.beta_e << std::endl;
 
         for (int j = 0; j <= para.iteration_step_limit; j++) {
             eigen_solver.newtonTraceSecantIteration();
@@ -113,7 +113,7 @@ int main() {
         outfile << null_space;
         flush(eigenvalue);
         flush(outfile);
-        para.q += 0.05;
+        para.beta_e += 0.0005;
         para.parameterInit();
         omega_initial_guess = eigen_solver.eigen_value;
     }

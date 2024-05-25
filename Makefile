@@ -1,6 +1,6 @@
 # Define the compiler
 
-# DEBUGFLAGS = -g -DEMME_DEBUG
+# DEBUGFLAGS = -g -DEMME_DEBUG 
 
 CXX = g++
 
@@ -24,10 +24,12 @@ OBJS = $(SRCS:.cpp=.o)
 HDRS = *.h
 
 # Build the executable
+
 $(TARGET): $(OBJS) $(HDRS)
 	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) $(DEBUGFLAGS) 
 
-%.o: %.cpp %.h
+
+%.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS)  $(LAPACK_INCLUDE) -c $< -o $@
 
 # Clean the project (removes the executable)
@@ -41,3 +43,5 @@ all: $(TARGET)
 
 remake:
 	make clean;make -j
+
+
