@@ -34,9 +34,12 @@ clean:
 	rm -f $(TARGET) $(OBJS)
 
 # Default target to build the executable
-.PHONY: all clean remake
+.PHONY: all clean remake test
 
 all: $(TARGET)
+
+test:
+	make -C ./test/
 
 remake:
 	make clean;make -j
