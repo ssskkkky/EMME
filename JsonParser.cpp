@@ -124,24 +124,26 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
               << ", Content: " << token.content << " }";
 }
 
-Value JsonParser::parse(JsonLexer& lexer) {
+JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(json_lexer) {}
+
+Value JsonParser::parse() {
     if (!lexer) { report_syntax_error(); }  // token list is empty
-    auto value = parse_value(lexer);
-    try_get_from_lexer(lexer, true);  // Check if lexer ends
+    auto value = parse_value();
+    try_get_from_lexer(true);  // Check if lexer ends
     return value;
 }
 
-Value JsonParser::parse_value(JsonLexer& lexer) {
-    auto token = try_get_from_lexer(lexer);
+Value JsonParser::parse_value() {
+    auto token = try_get_from_lexer();
     switch (token.name) {
         case JsonLexer::TokenName::STRING:
             return parse_string(token);
         case JsonLexer::TokenName::NUMBER:
             return parse_number(token);
         case JsonLexer::TokenName::BRACE_LEFT:
-            return parse_object(lexer);
+            return parse_object();
         case JsonLexer::TokenName::BRACKET_LEFT:
-            return parse_array(lexer);
+            return parse_array();
         default:
             report_syntax_error(token);
             return Value{};  // unreachable
@@ -163,18 +165,18 @@ Value JsonParser::parse_number(const JsonLexer::Token& token) {
             new Number{std::atof(token.content.c_str())}};
 }
 
-Value JsonParser::parse_object(JsonLexer& lexer) {
+Value JsonParser::parse_object() {
     auto obj = new Object;
-    auto token = try_peek_from_lexer(lexer);
+    auto token = try_peek_from_lexer();
     // empty object
     if (token.name == JsonLexer::TokenName::BRACE_RIGHT) {
         return {ValueCategory::Object, obj};
     }
     while (true) {
-        auto key = try_get_and_check(lexer, JsonLexer::TokenName::STRING);
-        try_get_and_check(lexer, JsonLexer::TokenName::COLON);
-        obj->content.emplace(key.content, parse_value(lexer));  // value
-        token = try_get_from_lexer(lexer);
+        auto key = try_get_and_check(JsonLexer::TokenName::STRING);
+        try_get_and_check(JsonLexer::TokenName::COLON);
+        obj->content.emplace(key.content, parse_value());  // value
+        token = try_get_from_lexer();
         if (token.name == JsonLexer::TokenName::BRACE_RIGHT) { break; }
         if (token.name != JsonLexer::TokenName::COMMA) {
             report_syntax_error(token);
@@ -183,16 +185,16 @@ Value JsonParser::parse_object(JsonLexer& lexer) {
     return {ValueCategory::Object, obj};
 }
 
-Value JsonParser::parse_array(JsonLexer& lexer) {
+Value JsonParser::parse_array() {
     auto arr = new Array;
-    auto token = try_peek_from_lexer(lexer);
+    auto token = try_peek_from_lexer();
     // empty array
     if (token.name == JsonLexer::TokenName::BRACKET_RIGHT) {
         return {ValueCategory::Array, arr};
     }
     while (true) {
-        arr->content.emplace_back(parse_value(lexer));
-        token = try_get_from_lexer(lexer);
+        arr->content.emplace_back(parse_value());
+        token = try_get_from_lexer();
         if (token.name == JsonLexer::TokenName::BRACKET_RIGHT) { break; }
         if (token.name != JsonLexer::TokenName::COMMA) {
             report_syntax_error(token);
@@ -202,15 +204,13 @@ Value JsonParser::parse_array(JsonLexer& lexer) {
 }
 
 JsonLexer::Token JsonParser::try_get_and_check(
-    JsonLexer& lexer,
     JsonLexer::TokenName expected_token_name) {
     auto token = lexer.get_token();
     if (token.name != expected_token_name) { report_syntax_error(token); }
     return token;
 }
 
-JsonLexer::Token JsonParser::try_get_from_lexer(JsonLexer& lexer,
-                                                bool end_expected) {
+JsonLexer::Token JsonParser::try_get_from_lexer(bool end_expected) {
     auto token = lexer.get_token();
     if (end_expected ^ (token.name == JsonLexer::TokenName::END_OF_FILE)) {
         report_syntax_error(token);
@@ -218,7 +218,7 @@ JsonLexer::Token JsonParser::try_get_from_lexer(JsonLexer& lexer,
     return token;
 }
 
-JsonLexer::Token JsonParser::try_peek_from_lexer(JsonLexer& lexer) {
+JsonLexer::Token JsonParser::try_peek_from_lexer() {
     auto token = lexer.peek_token();
     if (token.name == JsonLexer::TokenName::END_OF_FILE) {
         report_syntax_error(token);

@@ -17,8 +17,7 @@ int main() {
     ifs.clear();
     ifs.seekg(0);  // rewind
     {
-        JsonLexer json_lexer(ifs);
-        auto obj = JsonParser{}.parse(json_lexer);
+        auto obj = JsonParser{JsonParser{ifs}}.parse();
         double a = obj["a"];
         std::cout << a << '\n';
     }
