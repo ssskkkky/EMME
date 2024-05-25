@@ -6,5 +6,7 @@
         "two":2
     },
 
+    "float": -3.25e-9,
+
     "answer" :"forty two"
 }
