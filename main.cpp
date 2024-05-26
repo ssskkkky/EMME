@@ -4,6 +4,7 @@
 #include <utility>
 
 #include "Grid.h"
+#include "JsonParser.h"
 #include "Matrix.h"
 #include "Parameters.h"
 // #include "fenv.h" //this is for check inf or nan
@@ -12,53 +13,18 @@
 #include "solver.h"
 
 int main() {
-    // feenableexcept(FE_DIVBYZERO);
-    std::string filename = "emme.in";
-    std::ifstream input_file(filename);
+    std::string filename = "input.json";
 
-    double q_input;
-    double shat_input;
-    double tau_input;
-    double epsilon_n_input;
-    double eta_i_input;
-    double eta_e_input;
-    double b_theta_input;
-    double beta_e_input;
-    double R_input;
-    double vt_input;
-    double length_input;
-    double theta_input;
-    int npoints_input;
-    int iteration_step_limit_input;
-    double initial_guess_real;
-    double initial_guess_imag;
+    auto input = util::json::parse_file(filename);
 
-    input_file >> q_input >> shat_input >> tau_input >> epsilon_n_input >>
-        eta_i_input >> eta_e_input >> b_theta_input >> beta_e_input >>
-        R_input >> vt_input >> length_input >> theta_input >> npoints_input >>
-        iteration_step_limit_input >> initial_guess_real >> initial_guess_imag;
+    std::complex<double> omega_initial_guess(input["initial_guess"][0],
+                                             input["initial_guess"][1]);
 
-    input_file.close();
-
-    // const auto [q; shat, tau, epsilon_n, eta_i, b_theta, R, vt,
-    // length, theta,
-    //             npoints, iteration_step_limit] =
-    //             readInputFromFile(filename);
-
-    // std::tie(omega_s_i, omega_d_bar) = initiallize(vt, tau);
-
-    // Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
-    //                 eta_i_input, b_theta_input, R_input, vt_input,
-    //                 length_input, theta_input, npoints_input,
-    //                 iteration_step_limit_input);
-
-    std::complex<double> omega_initial_guess(initial_guess_real,
-                                             initial_guess_imag);
-
-    Parameters para(q_input, shat_input, tau_input, epsilon_n_input,
-                    eta_i_input, eta_e_input, b_theta_input, beta_e_input,
-                    R_input, vt_input, length_input, theta_input, npoints_input,
-                    iteration_step_limit_input);
+    Parameters para(input["q"], input["shat"], input["tau"], input["epsilon_n"],
+                    input["eta_i"], input["eta_e"], input["b_theta"],
+                    input["beta_e"], input["R"], input["vt"], input["length"],
+                    input["theta"], input["npoints"],
+                    input["iteration_step_limit"]);
 
     auto length = para.length;
     auto npoints = para.npoints;

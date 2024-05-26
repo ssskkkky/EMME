@@ -1,0 +1,18 @@
+{                           
+    "q":0.5,
+    "shat":0.6,
+    "tau":1.0,
+    "epsilon_n":0.2,
+    "eta_i":2.5,
+    "eta_e":2.0,
+    "b_theta":0.25,
+    "beta_e":0.002,
+    "R":5.0,
+    "vt":1.0,
+    "length":20.0,
+    "theta":0.0,
+    "npoints":128,
+    "iteration_step_limit":100,
+    "initial_guess": [-0.2, 0.09]
+}
+                           
