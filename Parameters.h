@@ -42,11 +42,11 @@ struct Parameters {
     double omega_s_i;    // Calculated in constructor
     double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
-
-    double g_integration_f(double eta) const;
+    virtual void parameterInit();
+    virtual double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
-    double bi(double eta) const;
+    virtual double bi(double eta) const;
 
     std::complex<double> lambda_f_tau(double eta,
                                       double eta_p,
@@ -67,20 +67,19 @@ struct Parameters {
     std::complex<double> kappa_f_tau(unsigned int m,
                                      double eta,
                                      double eta_p,
-                                     std::complex<double>);
+                                     std::complex<double>) const;
 
     std::complex<double> kappa_f_tau_e(unsigned int m,
                                        double eta,
                                        double eta_p,
-                                       std::complex<double>);
+                                       std::complex<double>) const;
 
    private:
     // No private member functions needed (assuming this is just a data
     // structure)
 
-    std::array<std::complex<double>, 5> integration_lambda_arg(double eta,
-                                                               double eta_p,
-                                                               double tau);
+    std::array<std::complex<double>, 5>
+    integration_lambda_arg(double eta, double eta_p, double tau) const;
 
     /* std::complex<double> lambda_f_tau_term; */
     /* std::complex<double> arg; */
@@ -89,6 +88,43 @@ struct Parameters {
     /* std::complex<double> bessel_1; */
 };
 
-struct Stellarator : Parameters {};
+struct Stellarator : public Parameters {
+    Stellarator(double q_input,
+                double shat_input,
+                double tau_input,
+                double epsilon_n_input,
+                double eta_i_input,
+                double eta_e_input,
+                double b_theta_input,
+                double beta_e_input,
+                double R_input,
+                double vt_input,
+                double length_input,
+                double theta_input,
+                int npoints_input,
+                int iteration_step_limit_input,
+                double eta_k_input,
+                int lh_input,
+                int mh_input,
+                double epsilon_h_t_input,
+                double alpha_0_input,
+                double r_over_R_input);
+
+    double eta_k;
+    int lh;
+    int mh;
+    double epsilon_h_t;
+    double alpha_0;
+    double r_over_R;
+    double deltap;
+    double beta_e_p;
+    double alpha_p;
+    double deltapp;
+    double curvature_aver;
+    double bi(double eta) const override;
+    double g_integration_f(double eta) const override;
+    double sigma_f(double eta) const;
+    void parameterInit() override;
+};
 
 #endif

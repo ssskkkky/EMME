@@ -1,13 +1,14 @@
 # Define the compiler
 
-DEBUGFLAGS =
+# DEBUGFLAGS = -g -DEMME_DEBUG 
+
 CXX = g++
 
 LAPACK_INCLUDE = $(shell pkg-config lapack --cflags)
 BLASLAPCK_LIBS = $(shell pkg-config lapack --libs) $(shell pkg-config blas --libs)
 
 # Define C++ compiler flags (feel free to customize)
-CXXFLAGS = -Wall -std=c++20 -O3 -DEMME_EXPRESSION_TEMPLATE
+CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD -O3
 
 LD_FLAGS = $(BLASLAPCK_LIBS) -lgfortran
 
@@ -23,8 +24,10 @@ OBJS = $(SRCS:.cpp=.o)
 HDRS = *.h
 
 # Build the executable
+
 $(TARGET): $(OBJS) $(HDRS)
 	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) $(DEBUGFLAGS) 
+
 
 %.o: %.cpp
 	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS)  $(LAPACK_INCLUDE) -c $< -o $@
@@ -43,3 +46,5 @@ test:
 
 remake:
 	make clean;make -j
+
+
