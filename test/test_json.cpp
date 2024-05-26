@@ -34,6 +34,8 @@ int main() {
             std::cout << e.what() << '\n';
         }
         std::cout << '\n';
+
+        std::cout << "Unformatted output: " << obj.dump() << "\n\n";
     }
     return 0;
 }

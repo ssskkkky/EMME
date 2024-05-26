@@ -38,6 +38,8 @@ struct NumberFloat {
  *
  */
 struct Value {
+    using object_container_type = std::unordered_map<std::string, Value>;
+    using array_container_type = std::vector<Value>;
     Value() = default;
 
     // Type information in deleter is stored during contruction
@@ -58,7 +60,7 @@ struct Value {
     operator std::string() const;
 
     template <typename T>
-    T get_number() const requires std::is_arithmetic_v<T> {
+    T as_number() const requires std::is_arithmetic_v<T> {
         if (value_cat == ValueCategory::NumberFloat) {
             return static_cast<NumberFloat*>(ptr.get())->content;
         } else if (value_cat == ValueCategory::NumberInt) {
@@ -73,6 +75,15 @@ struct Value {
 
     const Value& operator[](const std::string&) const;
     const Value& operator[](int) const;
+
+    const object_container_type& as_object() const;
+    const array_container_type& as_array() const;
+
+    std::size_t size() const;
+    std::size_t empty() const;
+
+    // unformatted output
+    std::string dump() const;
 
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;
@@ -96,10 +107,10 @@ struct Value {
 };
 
 struct Object {
-    std::unordered_map<std::string, Value> content;
+    Value::object_container_type content;
 };
 struct Array {
-    std::vector<Value> content;
+    Value::array_container_type content;
 };
 struct String {
     std::string content;

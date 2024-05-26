@@ -52,6 +52,67 @@ const Value& Value::operator[](int idx) const {
     return static_cast<Array*>(ptr.get())->content.at(idx);
 }
 
+const Value::object_container_type& Value::as_object() const {
+    expected_cat(ValueCategory::Object);
+    return static_cast<Object*>(ptr.get())->content;
+}
+const Value::array_container_type& Value::as_array() const {
+    expected_cat(ValueCategory::Array);
+    return static_cast<Array*>(ptr.get())->content;
+}
+
+std::size_t Value::size() const {
+    expected_cat(ValueCategory::Object, ValueCategory::Array);
+    if (value_cat == ValueCategory::Object) {
+        return static_cast<Object*>(ptr.get())->content.size();
+    } else {
+        return static_cast<Array*>(ptr.get())->content.size();
+    }
+}
+std::size_t Value::empty() const {
+    expected_cat(ValueCategory::Object, ValueCategory::Array);
+    if (value_cat == ValueCategory::Object) {
+        return static_cast<Object*>(ptr.get())->content.empty();
+    } else {
+        return static_cast<Array*>(ptr.get())->content.empty();
+    }
+}
+
+std::string Value::dump() const {
+    std::ostringstream oss;
+    switch (value_cat) {
+        case ValueCategory::NumberInt:
+            oss << as_number<int>();
+            break;
+        case ValueCategory::NumberFloat:
+            oss << as_number<double>();
+            break;
+        case ValueCategory::String:
+            oss << '"' << static_cast<std::string>(*this) << '"';
+            break;
+        case ValueCategory::Object:
+            oss << '{';
+            for (const auto& [key, val] : as_object()) {
+                oss << key << ':' << val.dump() << ',';
+            }
+            if (!empty()) { oss.seekp(-1, std::ios_base::cur); }
+            oss << '}';
+            break;
+        case ValueCategory::Array:
+            oss << '[';
+            for (std::size_t i = 0; i < size(); ++i) {
+                if (i) {
+                    oss << ',' << operator[](i).dump();
+                } else {
+                    oss << operator[](i).dump();
+                }
+            }
+            oss << ']';
+            break;
+    }
+    return oss.str();
+}
+
 JsonLexer::JsonLexer(std::istream& is) : is_(is) {}
 
 JsonLexer::Token JsonLexer::get_token() {
