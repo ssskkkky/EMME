@@ -24,7 +24,7 @@ enum class ValueCategory {
     Object,
 };
 
-static const char* get_value_category_name(ValueCategory);
+const char* get_value_category_name(ValueCategory);
 
 struct NumberInt {
     int content;
@@ -133,9 +133,9 @@ struct JsonLexer {
 
    private:
     std::istream& is_;
-    Token buffer;
-    bool is_buffer_full;
-    bool is_buffer_output;
+    Token buffer{};
+    bool is_buffer_full{};
+    bool is_buffer_output{};
 
     void read_token_to_buffer();
     // any char that can be in a float number

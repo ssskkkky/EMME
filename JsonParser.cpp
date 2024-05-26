@@ -25,7 +25,11 @@ const char* get_value_category_name(ValueCategory val_cat) {
 
 Value::operator double() const {
     expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
-    return static_cast<NumberFloat*>(ptr.get())->content;
+    if (value_cat == ValueCategory::NumberFloat) {
+        return static_cast<NumberFloat*>(ptr.get())->content;
+    } else {
+        return static_cast<NumberInt*>(ptr.get())->content;
+    }
 }
 
 // Value::operator int() const {
@@ -131,7 +135,7 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
 }
 #endif  // EMME_DEBUG
 
-JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(json_lexer) {}
+JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(std::move(json_lexer)) {}
 
 Value JsonParser::parse() {
     if (!lexer) { report_syntax_error(); }  // token list is empty
@@ -245,7 +249,10 @@ JsonLexer::Token JsonParser::try_peek_from_lexer() {
 void JsonParser::report_syntax_error(const JsonLexer::Token& token) {
     std::ostringstream oss;
     oss << "Syntax error in JSON file at token ";
+    // TODO: Make it more informative
+#ifdef EMME_DEBUG
     oss << token;
+#endif
     throw std::runtime_error(oss.str());
 }
 
