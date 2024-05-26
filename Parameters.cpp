@@ -173,7 +173,7 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
         5;  // Adjust as needed for your integration accuracy requirements
 
     auto result = util::integrate(integrand, lower_bound, upper_bound, tol,
-                                  max_iterations);
+                                  max_iterations, 1e-2);
 
     // std::complex<double> term1 =
     //     (omega -
