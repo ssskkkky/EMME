@@ -36,6 +36,7 @@ int main() {
         std::cout << '\n';
 
         std::cout << "Unformatted output: " << obj.dump() << "\n\n";
+        std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
     }
     return 0;
 }

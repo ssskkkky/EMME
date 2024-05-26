@@ -85,6 +85,9 @@ struct Value {
     // unformatted output
     std::string dump() const;
 
+    // formatted output
+    std::string pretty_print(std::size_t = 0) const;
+
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;
     ValueCategory value_cat;
@@ -104,6 +107,8 @@ struct Value {
             throw std::runtime_error(oss.str());
         }
     }
+
+    static void print_space(std::ostream&, std::size_t);
 };
 
 struct Object {

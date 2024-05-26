@@ -113,6 +113,55 @@ std::string Value::dump() const {
     return oss.str();
 }
 
+std::string Value::pretty_print(std::size_t indent) const {
+    std::ostringstream oss;
+    switch (value_cat) {
+        case ValueCategory::NumberInt:
+        case ValueCategory::NumberFloat:
+        case ValueCategory::String:
+            oss << dump();
+            break;
+        case ValueCategory::Object:
+            oss << "{\n";
+            for (const auto& [key, val] : as_object()) {
+                print_space(oss, indent + 4);
+                oss << '"' << key << '"' << ": " << val.pretty_print(indent + 4)
+                    << ",\n";
+            }
+            if (empty()) {
+                oss.seekp(-1, std::ios_base::cur);
+                oss << ' ';
+            } else {
+                oss.seekp(-2, std::ios_base::cur);
+                oss << '\n';
+                print_space(oss, indent);
+            }
+            oss << '}';
+            break;
+        case ValueCategory::Array:
+            oss << "[\n";
+            for (std::size_t i = 0; i < size(); ++i) {
+                if (i) { oss << ",\n"; }
+                print_space(oss, indent + 4);
+                oss << operator[](i).pretty_print(indent + 4);
+            }
+            if (empty()) {
+                oss.seekp(-1, std::ios_base::cur);
+                oss << ' ';
+            } else {
+                oss << '\n';
+                print_space(oss, indent);
+            }
+            oss << ']';
+            break;
+    }
+    return oss.str();
+}
+
+void Value::print_space(std::ostream& os, std::size_t indent) {
+    for (std::size_t i = 0; i < indent; ++i) { os << ' '; }
+}
+
 JsonLexer::JsonLexer(std::istream& is) : is_(is) {}
 
 JsonLexer::Token JsonLexer::get_token() {
