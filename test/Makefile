@@ -1,4 +1,4 @@
-DEBUGFLAGS = -ggdb -DEMME_DEBUG -I..
+DEBUGFLAGS = -std=c++20 -ggdb -DEMME_DEBUG -I..
 CXX = g++
 
 # all tests

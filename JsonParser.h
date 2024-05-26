@@ -17,7 +17,8 @@ namespace util {
 namespace json {
 
 enum class ValueCategory {
-    Number,
+    NumberInt,
+    NumberFloat,
     String,
     Array,
     Object,
@@ -25,11 +26,12 @@ enum class ValueCategory {
 
 static const char* get_value_category_name(ValueCategory);
 
-// forward declarations
-struct Object;
-struct Array;
-struct Number;
-struct String;
+struct NumberInt {
+    int content;
+};
+struct NumberFloat {
+    double content;
+};
 
 /**
  * @brief Stores either a JSON object, array, number or string
@@ -52,16 +54,45 @@ struct Value {
     }
 
     operator double() const;
+    // operator int() const;
     operator std::string() const;
 
-    const Value& operator[](const std::string&);
-    const Value& operator[](int);
+    template <typename T>
+    T get_number() const requires std::is_arithmetic_v<T> {
+        if (value_cat == ValueCategory::NumberFloat) {
+            return static_cast<NumberFloat*>(ptr.get())->content;
+        } else if (value_cat == ValueCategory::NumberInt) {
+            return static_cast<NumberInt*>(ptr.get())->content;
+        } else {
+            throw std::runtime_error(
+                std::string("Incorrect JSON type, require: Number, actually") +
+                std::string(get_value_category_name(value_cat)));
+        }
+        return T{};
+    }
+
+    const Value& operator[](const std::string&) const;
+    const Value& operator[](int) const;
 
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;
     ValueCategory value_cat;
 
-    void expected_cat(ValueCategory) const;
+    template <typename... Ts>
+    void expected_cat(Ts... cats) const
+        requires(std::same_as<Ts, ValueCategory>&&...) {
+        if (((value_cat != cats) && ...)) {
+            std::ostringstream oss;
+            if constexpr (sizeof...(Ts) == 1) {
+                oss << "Incorrect JSON type, requires: ";
+            } else {
+                oss << "Incorrect JSON type, requires one of: ";
+            }
+            ((oss << get_value_category_name(cats) << ", "), ...)
+                << "actually: " << get_value_category_name(value_cat);
+            throw std::runtime_error(oss.str());
+        }
+    }
 };
 
 struct Object {
@@ -69,9 +100,6 @@ struct Object {
 };
 struct Array {
     std::vector<Value> content;
-};
-struct Number {
-    double content;
 };
 struct String {
     std::string content;
@@ -81,7 +109,8 @@ struct JsonLexer {
     enum class TokenName {
         END_OF_FILE,
         STRING,
-        NUMBER,
+        INTEGER,
+        FLOAT,
         BRACE_LEFT = '{',
         BRACE_RIGHT = '}',
         BRACKET_LEFT = '[',
@@ -127,7 +156,8 @@ struct JsonParser {
 
     Value parse_value();
     Value parse_string(const JsonLexer::Token&);
-    Value parse_number(const JsonLexer::Token&);
+    Value parse_int(const JsonLexer::Token&);
+    Value parse_float(const JsonLexer::Token&);
     Value parse_object();
     Value parse_array();
 

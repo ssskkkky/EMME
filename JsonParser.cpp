@@ -1,4 +1,4 @@
-#include <cstdlib>  // atof
+#include <cstdlib>  // atof, atoi
 #include <sstream>
 
 #include "JsonParser.h"
@@ -12,7 +12,8 @@ const char* get_value_category_name(ValueCategory val_cat) {
         return #p;          \
         break;
     switch (val_cat) {
-        PROCESS_CAT_NAME(ValueCategory::Number)
+        PROCESS_CAT_NAME(ValueCategory::NumberInt)
+        PROCESS_CAT_NAME(ValueCategory::NumberFloat)
         PROCESS_CAT_NAME(ValueCategory::String)
         PROCESS_CAT_NAME(ValueCategory::Array)
         PROCESS_CAT_NAME(ValueCategory::Object)
@@ -22,29 +23,28 @@ const char* get_value_category_name(ValueCategory val_cat) {
 }
 
 Value::operator double() const {
-    expected_cat(ValueCategory::Number);
-    return static_cast<Number*>(ptr.get())->content;
+    expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
+    return static_cast<NumberFloat*>(ptr.get())->content;
 }
+
+// Value::operator int() const {
+//     expected_cat(ValueCategory::NumberInt);
+//     return static_cast<NumberInt*>(ptr.get())->content;
+// }
+// NOTE: Can not do this due to an annoying C builtin operator[](ptrdiff_t,
+// const char*)
+
 Value::operator std::string() const {
     expected_cat(ValueCategory::String);
     return static_cast<String*>(ptr.get())->content;
 }
-const Value& Value::operator[](const std::string& key) {
+const Value& Value::operator[](const std::string& key) const {
     expected_cat(ValueCategory::Object);
     return static_cast<Object*>(ptr.get())->content[key];
 }
-const Value& Value::operator[](int idx) {
+const Value& Value::operator[](int idx) const {
     expected_cat(ValueCategory::Array);
     return static_cast<Array*>(ptr.get())->content.at(idx);
-}
-
-void Value::expected_cat(ValueCategory cat) const {
-    if (value_cat != cat) {
-        std::ostringstream oss;
-        oss << "Incorrect JSON type, require: " << get_value_category_name(cat)
-            << ", actually: " << get_value_category_name(value_cat);
-        throw std::runtime_error(oss.str());
-    }
 }
 
 JsonLexer::JsonLexer(std::istream& is) : is_(is) {}
@@ -81,8 +81,12 @@ void JsonLexer::read_token_to_buffer() {
         while (is_.get(c) && c != '"') { buffer.content.push_back(c); }
     } else if (is_digit_start(c)) {
         // a number
-        buffer.name = TokenName::NUMBER;
-        do { buffer.content.push_back(c); } while (is_.get(c) && is_digit(c));
+        bool is_float{};
+        do {
+            buffer.content.push_back(c);
+            is_float |= c == '.';
+        } while (is_.get(c) && is_digit(c));
+        buffer.name = is_float ? TokenName::FLOAT : TokenName::INTEGER;
         is_.unget();
     }
     is_buffer_full = true;
@@ -109,7 +113,8 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
         break;
                switch (token.name) {
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::STRING)
-                   PROCESS_TOKEN_NAME(JsonLexer::TokenName::NUMBER)
+                   PROCESS_TOKEN_NAME(JsonLexer::TokenName::INTEGER)
+                   PROCESS_TOKEN_NAME(JsonLexer::TokenName::FLOAT)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::BRACE_LEFT)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::BRACE_RIGHT)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::BRACKET_LEFT)
@@ -139,8 +144,10 @@ Value JsonParser::parse_value() {
     switch (token.name) {
         case JsonLexer::TokenName::STRING:
             return parse_string(token);
-        case JsonLexer::TokenName::NUMBER:
-            return parse_number(token);
+        case JsonLexer::TokenName::INTEGER:
+            return parse_int(token);
+        case JsonLexer::TokenName::FLOAT:
+            return parse_float(token);
         case JsonLexer::TokenName::BRACE_LEFT:
             return parse_object();
         case JsonLexer::TokenName::BRACKET_LEFT:
@@ -158,12 +165,19 @@ Value JsonParser::parse_string(const JsonLexer::Token& token) {
     return {ValueCategory::String, new String{token.content}};
 }
 
-Value JsonParser::parse_number(const JsonLexer::Token& token) {
-    if (token.name != JsonLexer::TokenName::NUMBER) {
+Value JsonParser::parse_int(const JsonLexer::Token& token) {
+    if (token.name != JsonLexer::TokenName::INTEGER) {
         report_syntax_error(token);
     }
-    return {ValueCategory::Number,
-            new Number{std::atof(token.content.c_str())}};
+    return {ValueCategory::NumberInt,
+            new NumberInt{std::atoi(token.content.c_str())}};
+}
+Value JsonParser::parse_float(const JsonLexer::Token& token) {
+    if (token.name != JsonLexer::TokenName::FLOAT) {
+        report_syntax_error(token);
+    }
+    return {ValueCategory::NumberFloat,
+            new NumberFloat{std::atof(token.content.c_str())}};
 }
 
 Value JsonParser::parse_object() {
