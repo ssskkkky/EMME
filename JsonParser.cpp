@@ -93,7 +93,7 @@ std::string Value::dump() const {
         case ValueCategory::Object:
             oss << '{';
             for (const auto& [key, val] : as_object()) {
-                oss << key << ':' << val.dump() << ',';
+                oss << '"' << key << '"' << ':' << val.dump() << ',';
             }
             if (!empty()) { oss.seekp(-1, std::ios_base::cur); }
             oss << '}';
