@@ -1,5 +1,6 @@
 #include <cstdlib>  // atof, atoi
-#include <sstream>
+#include <fstream>  // ifstream
+#include <sstream>  // ostringstream
 
 #include "JsonParser.h"
 
@@ -246,6 +247,15 @@ void JsonParser::report_syntax_error(const JsonLexer::Token& token) {
     oss << "Syntax error in JSON file at token ";
     oss << token;
     throw std::runtime_error(oss.str());
+}
+
+Value parse(std::istream& is) {
+    return JsonParser{is}.parse();
+}
+
+Value parse_file(std::string file_name) {
+    std::ifstream ifs(file_name);  // Its destructor will close the file
+    return parse(ifs);
 }
 
 }  // namespace json

@@ -145,7 +145,9 @@ struct JsonLexer {
     static bool is_whitespace(char c);
 };
 
+#ifdef EMME_DEBUG
 std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token);
+#endif
 
 struct JsonParser {
     JsonParser(JsonLexer&&);
@@ -166,6 +168,9 @@ struct JsonParser {
     JsonLexer::Token try_peek_from_lexer();
     void report_syntax_error(const JsonLexer::Token& = {});
 };
+
+Value parse(std::istream&);
+Value parse_file(std::string);
 
 }  // namespace json
 }  // namespace util

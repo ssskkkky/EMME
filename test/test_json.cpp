@@ -7,17 +7,16 @@
 using namespace util::json;
 
 int main() {
-    std::ifstream ifs("./test/test.json");
+    const char* file_name = "./test/test.json";
     {
+        std::ifstream ifs(file_name);
         JsonLexer json_lexer(ifs);
         std::cout << "Tokens:\n";
         while (json_lexer) { std::cout << json_lexer.get_token() << '\n'; }
         std::cout << '\n';
     }
-    ifs.clear();
-    ifs.seekg(0);  // rewind
     {
-        auto obj = JsonParser{JsonParser{ifs}}.parse();
+        auto obj = parse_file(file_name);
         double a = obj["a"];
         int b0 = obj["bs"][0];
         std::cout << a << ", " << b0 << '\n';
@@ -36,6 +35,5 @@ int main() {
         }
         std::cout << '\n';
     }
-    ifs.close();
     return 0;
 }
