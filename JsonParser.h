@@ -38,6 +38,7 @@ struct String;
 struct Value {
     Value() = default;
 
+    // Type information in deleter is stored during contruction
     template <typename T>
     Value(ValueCategory cat, T* raw_ptr)
         : ptr(raw_ptr,
@@ -46,17 +47,6 @@ struct Value {
 #ifdef EMME_DEBUG
                   std::cout << get_value_category_name(cat) << " deleted.\n";
 #endif
-                  // #define DELETE_TYPE(t)                              \
-//     do {                                            \
-//         if constexpr (type == ValueCategory::##t) { \
-//             delete static_cast<t*>(data);           \
-//         }                                           \
-//     } while (0);
-                  //               DELETE_TYPE(Number);
-                  //               DELETE_TYPE(String);
-                  //               DELETE_TYPE(Array);
-                  //               DELETE_TYPE(Object);
-                  // #undef DELETE_TYPE
               }),
           value_cat(cat) {
     }

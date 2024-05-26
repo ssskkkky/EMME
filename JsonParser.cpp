@@ -1,5 +1,4 @@
 #include <cstdlib>  // atof
-#include <ostream>
 #include <sstream>
 
 #include "JsonParser.h"
@@ -101,6 +100,7 @@ bool JsonLexer::is_whitespace(char c) {
     return c == '\t' || c == '\n' || c == '\r' || c == ' ';
 }
 
+#ifdef EMME_DEBUG
 std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
     return os << "{ Name: " << ([&token] {
 #define PROCESS_TOKEN_NAME(p) \
@@ -119,10 +119,11 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::END_OF_FILE)
                }
 #undef PROCESS_TOKEN_NAME
-               return "(No such name)";
+               return "(No such name)";  // unreachable
            })()
               << ", Content: " << token.content << " }";
 }
+#endif  // EMME_DEBUG
 
 JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(json_lexer) {}
 
