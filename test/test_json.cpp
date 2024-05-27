@@ -61,7 +61,13 @@ int main() {
         std::cout << "Property a after adding 1: " << obj["a"].dump() << '\n';
         obj["a"] = 69;
         std::cout << "Property a after being assigned 69: " << obj["a"].dump()
-                  << "\n\n";
+                  << '\n';
+        obj["obj"] = 69.69;
+        std::cout << "Property obj after being assigned 69.69: "
+                  << obj["obj"].dump() << '\n';
+        std::cout << '\n';
+
+        std::cout << "The destruct sequence:\n";
     }
     {  // test syntax error detection
         char json[] = "{\"a\":1,,\"b\":2}";
