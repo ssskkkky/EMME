@@ -61,22 +61,36 @@ class EigenSolver {
         matrix_type VT(A.getCols(), A.getCols());
 
         const char* jobu = "None";
-        const char* jobvt = "All";
         const lapack_int dimm = A.getRows();
         const lapack_int dimn = A.getCols();
 
         lapack_int work_length = dimm;
         // lapack_int optimal_work_length{};
-        lapack_int lwork = 5 * dimm;
+        lapack_int lwork = 2 * work_length * work_length;
         std::vector<value_type> work(lwork);
-        std::vector<double> rwork(5 * work_length);
+        std::vector<double> rwork(50 * work_length * work_length);
+        std::vector<int> iwork(8 * work_length);
 
         lapack_int info{};
 
-        LAPACK_zgesvd(jobu, jobvt, &dimm, &dimn, A.data(), &dimm, S.data(),
-                      U.data(), &dimm, VT.data(), &dimm, work.data(), &lwork,
-                      rwork.data(), &info);
+        using namespace std::chrono;
+        auto t1 = high_resolution_clock::now();
 
+        // const char* jobvt = "All";
+        // const char* jobz = "All";
+        // LAPACK_zgesvd(jobu, jobvt, &dimm, &dimn, A.data(), &dimm, S.data(),
+        //               U.data(), &dimm, VT.data(), &dimm, work.data(), &lwork,
+        //               rwork.data(), &info);
+
+        // zgesdd is much faster than zgesvd
+        LAPACK_zgesdd(jobz, &dimm, &dimn, A.data(), &dimm, S.data(), U.data(),
+                      &dimm, VT.data(), &dimm, work.data(), &lwork,
+                      rwork.data(), iwork.data(), &info);
+
+        auto dt = high_resolution_clock::now() - t1;
+        std::cout << duration<double, milliseconds::period>(dt).count()
+                  << std::endl;
+        flush(std::cout);
         auto V = VT;
 
         // ... perform SVD on A and store results in S, U, V
