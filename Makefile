@@ -1,7 +1,5 @@
 # Define the compiler
 
-# DEBUGFLAGS = -g -DEMME_DEBUG 
-
 CXX = g++
 
 LAPACK_INCLUDE = $(shell pkg-config lapack --cflags)
@@ -9,12 +7,15 @@ BLASLAPCK_LIBS = $(shell pkg-config lapack --libs) $(shell pkg-config blas --lib
 
 # Define C++ compiler flags (feel free to customize)
 
-ifdef DEBUG
-CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD -g -DEMME_DEBUG
-else
-CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD -O3
-endif
+DEBUG_FLAGS = -g -DEMME_DEBUG
+OPT_FLAGS = -O3
+CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD
 
+ifdef DEBUG
+CXXFLAGS +=$(DEBUG_FLAGS)
+else
+CXXFLAGS +=$(OPT_FLAGS)
+endif
 
 LD_FLAGS = $(BLASLAPCK_LIBS) -lgfortran
 
@@ -26,18 +27,22 @@ SRCS = $(wildcard *.cpp)
 
 OBJS = $(SRCS:.cpp=.o)
 
-# Define all header files (usually only the main header)
-HDRS = *.h
+header_in_main = Grid.h JsonParser.h Matrix.h Parameters.h functions.h singularity_handler.h solver.h
 
+all: $(TARGET)
 
-# Build the executable
+Parameters.o: functions.h
+solver.o: Grid.h Matrix.h Parameters.h functions.h
 
-$(TARGET): $(OBJS) $(HDRS)
-	$(CXX) -o $@ $(OBJS) $(STATIC_LIBS) $(LD_FLAGS) $(DEBUGFLAGS) 
+# General Rules
 
+$(TARGET): $(OBJS)
+	$(CXX) -o $@ $(OBJS) $(LD_FLAGS)
 
-%.o: %.cpp
-	$(CXX) $(CXXFLAGS) $(DEBUGFLAGS)  $(LAPACK_INCLUDE) -c $< -o $@
+main.o: main.cpp $(header_in_main)
+	$(CXX) $(CXXFLAGS) -c -o $@ $< 
+$(filter-out main.o, $(OBJS)): %.o: %.cpp %.h
+	$(CXX) $(CXXFLAGS) $(LAPACK_INCLUDE) -c -o $@ $< 
 
 # Clean the project (removes the executable)
 clean:
@@ -45,8 +50,6 @@ clean:
 
 # Default target to build the executable
 .PHONY: all clean remake test
-
-all: $(TARGET)
 
 test:
 	make -C ./test/
