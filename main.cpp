@@ -26,8 +26,9 @@ int main() {
 
     for (auto& [key, val] : input_all.as_object()) {
         if (val.is_object()) {
-            for (input[key] = val["head"]; input[key] <= val["tail"];
-                 input[key] += val["step"]) {
+            for (input[key] = val["head"].as_number<double>();
+                 input[key] <= val["tail"];
+                 input[key] += val["step"].as_number<double>()) {
                 std::complex<double> omega_initial_guess(
                     input["initial_guess"][0], input["initial_guess"][1]);
                 Parameters* para_ptr = nullptr;
