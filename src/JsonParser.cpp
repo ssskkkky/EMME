@@ -125,6 +125,8 @@ ValueCategory Value::value_category() const {
 std::string Value::dump() const {
     std::ostringstream oss;
     switch (value_cat) {
+        case ValueCategory::Niente:  // This should never get matched
+            break;
         case ValueCategory::NumberInt:
             oss << as_number<int>();
             break;
@@ -160,6 +162,7 @@ std::string Value::dump() const {
 std::string Value::pretty_print(std::size_t indent) const {
     std::ostringstream oss;
     switch (value_cat) {
+        case ValueCategory::Niente:  // This should never get matched
         case ValueCategory::NumberInt:
         case ValueCategory::NumberFloat:
         case ValueCategory::String:
