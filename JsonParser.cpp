@@ -300,6 +300,7 @@ Value JsonParser::parse_object() {
     auto token = try_peek_from_lexer();
     // empty object
     if (token.name == JsonLexer::TokenName::BRACE_RIGHT) {
+        try_get_from_lexer();
         return {ValueCategory::Object, obj};
     }
     while (true) {
@@ -320,6 +321,7 @@ Value JsonParser::parse_array() {
     auto token = try_peek_from_lexer();
     // empty array
     if (token.name == JsonLexer::TokenName::BRACKET_RIGHT) {
+        try_get_from_lexer();
         return {ValueCategory::Array, arr};
     }
     while (true) {
