@@ -38,6 +38,24 @@ struct NumberFloat {
  *
  */
 struct Value {
+   private:
+    template <typename... Ts>
+    void expected_cat(Ts... cats) const
+        requires(std::same_as<Ts, ValueCategory>&&...) {
+        if (((value_cat != cats) && ...)) {
+            std::ostringstream oss;
+            if constexpr (sizeof...(Ts) == 1) {
+                oss << "Incorrect JSON type, requires: ";
+            } else {
+                oss << "Incorrect JSON type, requires one of: ";
+            }
+            ((oss << get_value_category_name(cats) << ", "), ...)
+                << "actually: " << get_value_category_name(value_cat);
+            throw std::runtime_error(oss.str());
+        }
+    }
+
+   public:
     using object_container_type = std::unordered_map<std::string, Value>;
     using array_container_type = std::vector<Value>;
     Value() = default;
@@ -61,26 +79,43 @@ struct Value {
 
     template <typename T>
     T as_number() const requires std::is_arithmetic_v<T> {
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
         if (value_cat == ValueCategory::NumberFloat) {
             return static_cast<NumberFloat*>(ptr.get())->content;
-        } else if (value_cat == ValueCategory::NumberInt) {
-            return static_cast<NumberInt*>(ptr.get())->content;
         } else {
-            throw std::runtime_error(
-                std::string("Incorrect JSON type, require: Number, actually") +
-                std::string(get_value_category_name(value_cat)));
+            return static_cast<NumberInt*>(ptr.get())->content;
         }
         return T{};
     }
 
-    const Value& operator[](const std::string&) const;
-    const Value& operator[](int) const;
+    const Value& operator[](std::size_t) const;
+
+    Value& operator[](const std::string&);
+    Value& operator[](std::size_t);
+
+    const Value& at(const std::string&) const;
+    const Value& at(std::size_t) const;
+
+    Value& at(const std::string&);
+    Value& at(std::size_t);
 
     const object_container_type& as_object() const;
     const array_container_type& as_array() const;
 
+    object_container_type& as_object();
+    array_container_type& as_array();
+
+    // queries
+
+    bool is_object() const;
+    bool is_array() const;
+    bool is_number() const;
+    bool is_string() const;
+
     std::size_t size() const;
     std::size_t empty() const;
+
+    ValueCategory value_category() const;
 
     // unformatted output
     std::string dump() const;
@@ -91,22 +126,6 @@ struct Value {
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;
     ValueCategory value_cat;
-
-    template <typename... Ts>
-    void expected_cat(Ts... cats) const
-        requires(std::same_as<Ts, ValueCategory>&&...) {
-        if (((value_cat != cats) && ...)) {
-            std::ostringstream oss;
-            if constexpr (sizeof...(Ts) == 1) {
-                oss << "Incorrect JSON type, requires: ";
-            } else {
-                oss << "Incorrect JSON type, requires one of: ";
-            }
-            ((oss << get_value_category_name(cats) << ", "), ...)
-                << "actually: " << get_value_category_name(value_cat);
-            throw std::runtime_error(oss.str());
-        }
-    }
 
     static void print_space(std::ostream&, std::size_t);
 };

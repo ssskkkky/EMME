@@ -35,6 +35,18 @@ int main() {
         }
         std::cout << '\n';
 
+        std::cout << std::boolalpha;
+        std::cout << "Is the whole file an object? " << obj.is_object() << '\n';
+        std::cout << "Is the 'bs' property an array? " << obj["bs"].is_array()
+                  << "\n\n";
+
+        std::cout << "Print type of every property of the outermost object:\n";
+        for (auto& [key, val] : obj.as_object()) {
+            std::cout << "    " << key << ": ["
+                      << get_value_category_name(val.value_category()) << "]\n";
+        }
+        std::cout << '\n';
+
         std::cout << "Unformatted output: " << obj.dump() << "\n\n";
         std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
     }

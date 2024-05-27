@@ -43,13 +43,29 @@ Value::operator std::string() const {
     expected_cat(ValueCategory::String);
     return static_cast<String*>(ptr.get())->content;
 }
-const Value& Value::operator[](const std::string& key) const {
-    expected_cat(ValueCategory::Object);
-    return static_cast<Object*>(ptr.get())->content[key];
+const Value& Value::operator[](std::size_t idx) const {
+    return as_array()[idx];
 }
-const Value& Value::operator[](int idx) const {
-    expected_cat(ValueCategory::Array);
-    return static_cast<Array*>(ptr.get())->content.at(idx);
+
+Value& Value::operator[](const std::string& key) {
+    return as_object()[key];
+}
+Value& Value::operator[](std::size_t idx) {
+    return as_array()[idx];
+}
+
+const Value& Value::at(const std::string& key) const {
+    return as_object().at(key);
+}
+const Value& Value::at(std::size_t idx) const {
+    return as_array().at(idx);
+}
+
+Value& Value::at(const std::string& key) {
+    return as_object().at(key);
+}
+Value& Value::at(std::size_t idx) {
+    return as_array().at(idx);
 }
 
 const Value::object_container_type& Value::as_object() const {
@@ -59,6 +75,29 @@ const Value::object_container_type& Value::as_object() const {
 const Value::array_container_type& Value::as_array() const {
     expected_cat(ValueCategory::Array);
     return static_cast<Array*>(ptr.get())->content;
+}
+
+Value::object_container_type& Value::as_object() {
+    expected_cat(ValueCategory::Object);
+    return static_cast<Object*>(ptr.get())->content;
+}
+Value::array_container_type& Value::as_array() {
+    expected_cat(ValueCategory::Array);
+    return static_cast<Array*>(ptr.get())->content;
+}
+
+bool Value::is_object() const {
+    return value_cat == ValueCategory::Object;
+}
+bool Value::is_array() const {
+    return value_cat == ValueCategory::Array;
+}
+bool Value::is_number() const {
+    return value_cat == ValueCategory::NumberInt ||
+           value_cat == ValueCategory::NumberFloat;
+};
+bool Value::is_string() const {
+    return value_cat == ValueCategory::String;
 }
 
 std::size_t Value::size() const {
@@ -76,6 +115,10 @@ std::size_t Value::empty() const {
     } else {
         return static_cast<Array*>(ptr.get())->content.empty();
     }
+}
+
+ValueCategory Value::value_category() const {
+    return value_cat;
 }
 
 std::string Value::dump() const {
