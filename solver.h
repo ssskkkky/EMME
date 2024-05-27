@@ -60,7 +60,7 @@ class EigenSolver {
 
         matrix_type VT(A.getCols(), A.getCols());
 
-        const char* jobu = "None";
+        const char* jobz = "All";
         const lapack_int dimm = A.getRows();
         const lapack_int dimn = A.getCols();
 
@@ -77,7 +77,7 @@ class EigenSolver {
         auto t1 = high_resolution_clock::now();
 
         // const char* jobvt = "All";
-        // const char* jobz = "All";
+        //	        const char* jobu = "None";
         // LAPACK_zgesvd(jobu, jobvt, &dimm, &dimn, A.data(), &dimm, S.data(),
         //               U.data(), &dimm, VT.data(), &dimm, work.data(), &lwork,
         //               rwork.data(), &info);
