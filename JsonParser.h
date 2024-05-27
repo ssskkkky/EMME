@@ -17,6 +17,7 @@ namespace util {
 namespace json {
 
 enum class ValueCategory {
+    Niente,
     NumberInt,
     NumberFloat,
     String,

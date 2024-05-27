@@ -13,6 +13,7 @@ const char* get_value_category_name(ValueCategory val_cat) {
         return #p;          \
         break;
     switch (val_cat) {
+        PROCESS_CAT_NAME(ValueCategory::Niente)
         PROCESS_CAT_NAME(ValueCategory::NumberInt)
         PROCESS_CAT_NAME(ValueCategory::NumberFloat)
         PROCESS_CAT_NAME(ValueCategory::String)

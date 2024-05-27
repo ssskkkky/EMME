@@ -22,6 +22,12 @@ int main() {
         std::cout << a << ", " << b0 << '\n';
 
         try {
+            double d = obj["abc"];
+        } catch (std::exception& e) {
+            std::cout << "Try to get an undefined property as number\n";
+            std::cout << e.what() << '\n';
+        }
+        try {
             double d = obj["obj"];
         } catch (std::exception& e) {
             std::cout << "Try to get number from object\n";
