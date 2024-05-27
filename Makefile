@@ -9,7 +9,9 @@ BLASLAPCK_LIBS = $(shell pkg-config lapack --libs) $(shell pkg-config blas --lib
 
 DEBUG_FLAGS = -g -DEMME_DEBUG
 OPT_FLAGS = -O3
-CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD
+CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD -I./include
+
+VPATH = src:include
 
 ifdef DEBUG
 CXXFLAGS +=$(DEBUG_FLAGS)
@@ -23,7 +25,7 @@ LD_FLAGS = $(BLASLAPCK_LIBS) -lgfortran
 TARGET = emme
 
 # Define all source files
-SRCS = $(wildcard *.cpp)
+SRCS = $(notdir $(wildcard src/*.cpp))
 
 OBJS = $(SRCS:.cpp=.o)
 
