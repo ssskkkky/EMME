@@ -79,7 +79,8 @@ struct Value {
     operator std::string() const;
 
     template <typename T>
-    T as_number() const requires std::is_arithmetic_v<T> {
+    T as_number()
+        const requires std::is_arithmetic_v<std::remove_reference_t<T>> {
         expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
         if (value_cat == ValueCategory::NumberFloat) {
             return static_cast<NumberFloat*>(ptr.get())->content;
@@ -87,6 +88,35 @@ struct Value {
             return static_cast<NumberInt*>(ptr.get())->content;
         }
         return T{};
+    }
+
+    template <typename T>
+    bool operator<(
+        T val) const requires std::is_arithmetic_v<std::remove_reference_t<T>> {
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
+        return as_number<double>() < val;
+    }
+
+    template <typename T>
+    void operator+=(
+        T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
+        if (value_cat == ValueCategory::NumberFloat) {
+            static_cast<NumberFloat*>(ptr.get())->content += val;
+        } else {
+            static_cast<NumberInt*>(ptr.get())->content += val;
+        }
+    }
+
+    template <typename T>
+    void operator=(
+        T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
+        if (value_cat == ValueCategory::NumberFloat) {
+            static_cast<NumberFloat*>(ptr.get())->content = val;
+        } else {
+            static_cast<NumberInt*>(ptr.get())->content = val;
+        }
     }
 
     const Value& operator[](std::size_t) const;

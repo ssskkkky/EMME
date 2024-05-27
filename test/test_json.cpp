@@ -55,8 +55,15 @@ int main() {
 
         std::cout << "Unformatted output: " << obj.dump() << "\n\n";
         std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
+
+        std::cout << "Property a < 42 ? " << (obj["a"] < 42) << '\n';
+        obj["a"] += 1;
+        std::cout << "Property a after adding 1: " << obj["a"].dump() << '\n';
+        obj["a"] = 69;
+        std::cout << "Property a after being assigned 69: " << obj["a"].dump()
+                  << "\n\n";
     }
-    {
+    {  // test syntax error detection
         char json[] = "{\"a\":1,,\"b\":2}";
         try {
             parse(json);
