@@ -1,4 +1,5 @@
 #include <complex>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <utility>
@@ -20,29 +21,30 @@ int main() {
     std::complex<double> omega_initial_guess(input["initial_guess"][0],
                                              input["initial_guess"][1]);
 
-    auto para =
-        (!std::string{"tokamak"}.compare(input["conf"]))
-            ? Parameters(input["q"], input["shat"], input["tau"],
-                         input["epsilon_n"], input["eta_i"], input["eta_e"],
-                         input["b_theta"], input["beta_e"], input["R"],
-                         input["vt"], input["length"], input["theta"],
-                         input["npoints"], input["iteration_step_limit"])
-            : Stellarator(input["q"], input["shat"], input["tau"],
-                          input["epsilon_n"], input["eta_i"], input["eta_e"],
-                          input["b_theta"], input["beta_e"], input["R"],
-                          input["vt"], input["length"], input["theta"],
-                          input["npoints"], input["iteration_step_limit"],
-                          input["eta_k"], input["lh"], input["mh"],
-                          input["epsilon_h_t"], input["alpha_0"],
-                          input["r_over_R"]);
+    // reserve stack space
+    alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
 
-    // Stellarator para(
-    // input["q"], input["shat"], input["tau"], input["epsilon_n"],
-    // input["eta_i"], input["eta_e"], input["b_theta"], input["beta_e"],
-    // input["R"], input["vt"], input["length"], input["theta"],
-    // input["npoints"], input["iteration_step_limit"], input["eta_k"],
-    // input["lh"], input["mh"], input["epsilon_h_t"], input["alpha_0"],
-    // input["r_over_R"]);
+    Parameters* para_ptr = nullptr;
+    // Parameters are Stellarator are both trivially destructible, no need to
+    // bother calling their destructors.
+    if (!std::string{"tokamak"}.compare(input["conf"])) {
+        para_ptr = new (buffer) Parameters(
+            input["q"], input["shat"], input["tau"], input["epsilon_n"],
+            input["eta_i"], input["eta_e"], input["b_theta"], input["beta_e"],
+            input["R"], input["vt"], input["length"], input["theta"],
+            input["npoints"], input["iteration_step_limit"]);
+    } else if (!std::string{"stellarator"}.compare(input["conf"])) {
+        para_ptr = new (buffer) Stellarator(
+            input["q"], input["shat"], input["tau"], input["epsilon_n"],
+            input["eta_i"], input["eta_e"], input["b_theta"], input["beta_e"],
+            input["R"], input["vt"], input["length"], input["theta"],
+            input["npoints"], input["iteration_step_limit"], input["eta_k"],
+            input["lh"], input["mh"], input["epsilon_h_t"], input["alpha_0"],
+            input["r_over_R"]);
+    } else {
+        throw std::runtime_error("Input configuration not supported yet.");
+    }
+    auto& para = *para_ptr;
 
     auto length = para.length;
     auto npoints = para.npoints;
