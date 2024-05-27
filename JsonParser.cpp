@@ -206,7 +206,7 @@ void Value::print_space(std::ostream& os, std::size_t indent) {
     for (std::size_t i = 0; i < indent; ++i) { os << ' '; }
 }
 
-JsonLexer::JsonLexer(std::istream& is) : is_(is) {}
+JsonLexer::JsonLexer(std::istream& is) : is_(is), row(1), col(1) {}
 
 JsonLexer::Token JsonLexer::get_token() {
     if (!is_buffer_full || is_buffer_output) { read_token_to_buffer(); }
@@ -223,10 +223,17 @@ JsonLexer::Token JsonLexer::peek_token() {
 void JsonLexer::read_token_to_buffer() {
     char c;
     // skip all whitespaces
-    while (is_.get(c) && is_whitespace(c)) {}
+    while (is_.get(c) && is_whitespace(c)) {
+        ++col;
+        if (c == '\n') {
+            ++row;
+            col = 1;
+        }
+    }
     buffer.content.clear();
     if (!is_) {
         buffer.name = TokenName::END_OF_FILE;
+        buffer.col = 0;
     } else if (c == static_cast<char>(TokenName::BRACE_LEFT) ||
                c == static_cast<char>(TokenName::BRACE_RIGHT) ||
                c == static_cast<char>(TokenName::BRACKET_LEFT) ||
@@ -234,20 +241,32 @@ void JsonLexer::read_token_to_buffer() {
                c == static_cast<char>(TokenName::COLON) ||
                c == static_cast<char>(TokenName::COMMA)) {
         buffer.name = static_cast<TokenName>(c);
+        buffer.content.push_back(c);
+        buffer.col = col;
+        ++col;
     } else if (c == '"') {
         // a string
         buffer.name = TokenName::STRING;
-        while (is_.get(c) && c != '"') { buffer.content.push_back(c); }
+        buffer.col = col;
+        ++col;
+        while (is_.get(c) && c != '"') {
+            buffer.content.push_back(c);
+            ++col;
+        }
+        ++col;
     } else if (is_digit_start(c)) {
         // a number
         bool is_float{};
+        buffer.col = col;
         do {
             buffer.content.push_back(c);
             is_float |= c == '.';
+            ++col;
         } while (is_.get(c) && is_digit(c));
         buffer.name = is_float ? TokenName::FLOAT : TokenName::INTEGER;
         is_.unget();
     }
+    buffer.row = row;
     is_buffer_full = true;
 }
 JsonLexer::operator bool() const {
@@ -285,11 +304,13 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
 #undef PROCESS_TOKEN_NAME
                return "(No such name)";  // unreachable
            })()
-              << ", Content: " << token.content << " }";
+              << ", Content: '" << token.content << "', position: ("
+              << token.row << ", " << token.col << ')' << " }";
 }
 #endif  // EMME_DEBUG
 
-JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(std::move(json_lexer)) {}
+JsonParser::JsonParser(JsonLexer&& json_lexer, std::string file_name)
+    : lexer(std::move(json_lexer)), filename(file_name) {}
 
 Value JsonParser::parse() {
     if (!lexer) { report_syntax_error(); }  // token list is empty
@@ -404,10 +425,10 @@ JsonLexer::Token JsonParser::try_peek_from_lexer() {
 
 void JsonParser::report_syntax_error(const JsonLexer::Token& token) {
     std::ostringstream oss;
-    oss << "Syntax error in JSON file at token ";
-    // TODO: Make it more informative
+    oss << filename << ':' << token.row << ':' << token.col << ':'
+        << "error: unexpected content '" << token.content << '\'';
 #ifdef EMME_DEBUG
-    oss << token;
+    oss << ". The token is " << token;
 #endif
     throw std::runtime_error(oss.str());
 }
@@ -416,9 +437,15 @@ Value parse(std::istream& is) {
     return JsonParser{is}.parse();
 }
 
+Value parse(const char* str) {
+    std::stringstream ss;
+    ss << str;
+    return parse(ss);
+}
+
 Value parse_file(std::string file_name) {
     std::ifstream ifs(file_name);  // Its destructor will close the file
-    return parse(ifs);
+    return JsonParser{ifs, file_name}.parse();
 }
 
 }  // namespace json

@@ -157,7 +157,8 @@ struct JsonLexer {
     struct Token {
         TokenName name;
         std::string content;
-        // TODO: Add position in case of syntax error
+        int row;
+        int col;
     };
 
     JsonLexer(std::istream&);
@@ -170,6 +171,8 @@ struct JsonLexer {
    private:
     std::istream& is_;
     Token buffer{};
+    int row;
+    int col;
     bool is_buffer_full{};
     bool is_buffer_output{};
 
@@ -186,11 +189,12 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token);
 #endif
 
 struct JsonParser {
-    JsonParser(JsonLexer&&);
+    JsonParser(JsonLexer&&, std::string = {});
     Value parse();
 
    private:
     JsonLexer lexer;
+    std::string filename;
 
     Value parse_value();
     Value parse_string(const JsonLexer::Token&);
@@ -205,6 +209,7 @@ struct JsonParser {
     void report_syntax_error(const JsonLexer::Token& = {});
 };
 
+Value parse(const char*);
 Value parse(std::istream&);
 Value parse_file(std::string);
 

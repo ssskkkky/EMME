@@ -56,5 +56,14 @@ int main() {
         std::cout << "Unformatted output: " << obj.dump() << "\n\n";
         std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
     }
+    {
+        char json[] = "{\"a\":1,,\"b\":2}";
+        try {
+            parse(json);
+        } catch (std::exception& e) {
+            std::cout << "Try to parse a problemetic json:\n" << json << '\n';
+            std::cout << e.what() << '\n';
+        }
+    }
     return 0;
 }
