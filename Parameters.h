@@ -126,4 +126,8 @@ struct Stellarator : public Parameters {
     void parameterInit() override;
 };
 
+static_assert(std::is_trivially_destructible_v<Parameters>,
+              "Paramters should be trivially destructible.");
+static_assert(std::is_trivially_destructible_v<Stellarator>,
+              "Stellarator should be trivially destructible.");
 #endif
