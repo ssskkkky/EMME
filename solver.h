@@ -76,8 +76,8 @@ class EigenSolver {
         using namespace std::chrono;
         auto t1 = high_resolution_clock::now();
 
+        // const char* jobu = "None";
         // const char* jobvt = "All";
-        //	        const char* jobu = "None";
         // LAPACK_zgesvd(jobu, jobvt, &dimm, &dimn, A.data(), &dimm, S.data(),
         //               U.data(), &dimm, VT.data(), &dimm, work.data(), &lwork,
         //               rwork.data(), &info);

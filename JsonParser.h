@@ -111,11 +111,17 @@ struct Value {
     template <typename T>
     void operator=(
         T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
-        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
-        if (value_cat == ValueCategory::NumberFloat) {
+        using type = std::remove_reference_t<T>;
+        if (value_cat == ValueCategory::NumberInt) {
+            static_cast<NumberInt*>(ptr.get())->content = val;
+        } else if (value_cat == ValueCategory::NumberFloat) {
             static_cast<NumberFloat*>(ptr.get())->content = val;
         } else {
-            static_cast<NumberInt*>(ptr.get())->content = val;
+            if constexpr (std::is_integral_v<type>) {
+                *this = Value{ValueCategory::NumberInt, new NumberInt{val}};
+            } else {
+                *this = Value{ValueCategory::NumberFloat, new NumberFloat{val}};
+            }
         }
     }
 
