@@ -21,6 +21,10 @@ int main() {
 
     auto input_all = util::json::parse_file(filename);
     auto input = util::json::parse_file(filename);
+    std::complex<double> omega_initial_guess(
+        input["initial_guess"][0],
+        input["initial_guess"]
+             [1]);  // initial_guess is not designed for scanning.
     // reserve stack space
     alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
 
@@ -29,10 +33,8 @@ int main() {
             for (input[key] = val["head"].as_number<double>();
                  input[key] <= val["tail"];
                  input[key] += val["step"].as_number<double>()) {
-                std::complex<double> omega_initial_guess(
-                    input["initial_guess"][0], input["initial_guess"][1]);
                 Parameters* para_ptr = nullptr;
-                // Parameters are Stellarator are both trivially destructible,
+                // Parameters and Stellarator are both trivially destructible,
                 // no need to bother calling their destructors.
                 if (!std::string{"tokamak"}.compare(input["conf"])) {
                     para_ptr = new (buffer) Parameters(
