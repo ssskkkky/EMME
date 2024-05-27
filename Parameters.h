@@ -118,8 +118,7 @@ struct Stellarator : public Parameters {
     double r_over_R;
     double deltap;
     double beta_e_p;
-    double alpha_p;
-    double deltapp;
+    double rdeltapp;
     double curvature_aver;
     double bi(double eta) const override;
     double g_integration_f(double eta) const override;

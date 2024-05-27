@@ -20,11 +20,29 @@ int main() {
     std::complex<double> omega_initial_guess(input["initial_guess"][0],
                                              input["initial_guess"][1]);
 
-    Parameters para(input["q"], input["shat"], input["tau"], input["epsilon_n"],
-                    input["eta_i"], input["eta_e"], input["b_theta"],
-                    input["beta_e"], input["R"], input["vt"], input["length"],
-                    input["theta"], input["npoints"],
-                    input["iteration_step_limit"]);
+    auto para =
+        (!std::string{"tokamak"}.compare(input["conf"]))
+            ? Parameters(input["q"], input["shat"], input["tau"],
+                         input["epsilon_n"], input["eta_i"], input["eta_e"],
+                         input["b_theta"], input["beta_e"], input["R"],
+                         input["vt"], input["length"], input["theta"],
+                         input["npoints"], input["iteration_step_limit"])
+            : Stellarator(input["q"], input["shat"], input["tau"],
+                          input["epsilon_n"], input["eta_i"], input["eta_e"],
+                          input["b_theta"], input["beta_e"], input["R"],
+                          input["vt"], input["length"], input["theta"],
+                          input["npoints"], input["iteration_step_limit"],
+                          input["eta_k"], input["lh"], input["mh"],
+                          input["epsilon_h_t"], input["alpha_0"],
+                          input["r_over_R"]);
+
+    // Stellarator para(
+    // input["q"], input["shat"], input["tau"], input["epsilon_n"],
+    // input["eta_i"], input["eta_e"], input["b_theta"], input["beta_e"],
+    // input["R"], input["vt"], input["length"], input["theta"],
+    // input["npoints"], input["iteration_step_limit"], input["eta_k"],
+    // input["lh"], input["mh"], input["epsilon_h_t"], input["alpha_0"],
+    // input["r_over_R"]);
 
     auto length = para.length;
     auto npoints = para.npoints;
@@ -38,7 +56,7 @@ int main() {
 
     double tol = 1e-6;
 
-    for (unsigned int i = 0; i <= 40; i++) {
+    for (unsigned int i = 0; i <= 0; i++) {
         auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
             para, omega_initial_guess, coeff_matrix, grid_info);
         std::cout << eigen_solver.para.q << std::endl;
