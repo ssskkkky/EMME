@@ -19,7 +19,9 @@ int main() {
         auto obj = parse_file(file_name);
         double a = obj["a"];
         int b0 = obj["bs"][0];
-        std::cout << a << ", " << b0 << '\n';
+        bool bb = obj["primitives"][0].as_boolean();
+        std::cout << "a = " << a << "\nbs[0] = " << b0
+                  << "\nprimitives[0] = " << std::boolalpha << bb << '\n';
 
         try {
             double d = obj["abc"];

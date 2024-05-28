@@ -35,13 +35,6 @@ Value::operator double() const {
     }
 }
 
-// Value::operator int() const {
-//     expected_cat(ValueCategory::NumberInt);
-//     return static_cast<NumberInt*>(ptr.get())->content;
-// }
-// NOTE: Can not do this due to an annoying C builtin operator[](ptrdiff_t,
-// const char*)
-
 bool Value::as_boolean() const {
     return static_cast<Boolean*>(ptr.get())->content;
 };

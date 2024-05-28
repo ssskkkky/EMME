@@ -49,6 +49,9 @@ struct Value {
     template <typename... Ts>
     void expected_cat(Ts... cats) const
         requires(std::same_as<Ts, ValueCategory>&&...) {
+        if (value_cat == ValueCategory::Null) {
+            throw std::runtime_error("Undefined Property");
+        }
         if (((value_cat != cats) && ...)) {
             std::ostringstream oss;
             if constexpr (sizeof...(Ts) == 1) {
@@ -80,8 +83,11 @@ struct Value {
           value_cat(cat) {
     }
 
+    // NOTE: Can not cast to any integer type due to an annoying C builtin
+    // operator[](ptrdiff_t, const char*), as far as I still want to support
+    // operator[] for getting object property
+
     operator double() const;
-    // operator int() const;
     operator std::string() const;
 
     bool as_boolean() const;
