@@ -23,6 +23,9 @@ int main() {
         std::cout << "a = " << a << "\nbs[0] = " << b0
                   << "\nprimitives[0] = " << std::boolalpha << bb << '\n';
 
+        a = obj["a"] - obj["bs"][1];
+        std::cout << "a - bs[1] = " << a << '\n';
+
         try {
             double d = obj["abc"];
             static_cast<void>(d);
