@@ -543,9 +543,10 @@ Value parse(const char* str) {
     return parse(ss);
 }
 
-Value parse_file(std::string file_name) {
-    std::ifstream ifs(file_name);  // Its destructor will close the file
-    return JsonParser{JsonLexer{ifs, file_name}}.parse();
+Value parse_file(std::string filename) {
+    std::ifstream ifs(filename);  // Its destructor will close the file
+    if (!ifs) { throw std::runtime_error("File " + filename + " not found"); }
+    return JsonParser{JsonLexer{ifs, filename}}.parse();
 }
 
 }  // namespace json
