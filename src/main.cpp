@@ -19,40 +19,42 @@ int main() {
     std::ofstream eigenvalue("emme_eigen_value.csv");
     double tol = 1e-6;
 
+    using namespace std::string_literals;
     auto input_all = util::json::parse_file(filename);
     auto input = util::json::parse_file(filename);
     std::complex<double> omega_initial_guess(
-        input["initial_guess"][0],
-        input["initial_guess"]
+        input["initial_guess"s][0],
+        input["initial_guess"s]
              [1]);  // initial_guess is not designed for scanning.
     // reserve stack space
     alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
 
     for (auto& [key, val] : input_all.as_object()) {
         if (val.is_object()) {
-            for (input[key] = val["head"].as_number<double>();
-                 input[key] <= val["tail"];
-                 input[key] += val["step"].as_number<double>()) {
+            for (input[key] = val["head"s].as_number<double>();
+                 input[key] <= val["tail"s];
+                 input[key] += val["step"s].as_number<double>()) {
                 Parameters* para_ptr = nullptr;
                 // Parameters and Stellarator are both trivially destructible,
                 // no need to bother calling their destructors.
-                if (!std::string{"tokamak"}.compare(input["conf"])) {
+                if (!std::string{"tokamak"}.compare(input["conf"s])) {
                     para_ptr = new (buffer) Parameters(
-                        input["q"], input["shat"], input["tau"],
-                        input["epsilon_n"], input["eta_i"], input["eta_e"],
-                        input["b_theta"], input["beta_e"], input["R"],
-                        input["vt"], input["length"], input["theta"],
-                        input["npoints"], input["iteration_step_limit"]);
-                } else if (!std::string{"stellarator"}.compare(input["conf"])) {
+                        input["q"s], input["shat"s], input["tau"s],
+                        input["epsilon_n"s], input["eta_i"s], input["eta_e"s],
+                        input["b_theta"s], input["beta_e"s], input["R"s],
+                        input["vt"s], input["length"s], input["theta"s],
+                        input["npoints"s], input["iteration_step_limit"s]);
+                } else if (!std::string{"stellarator"}.compare(
+                               input["conf"s])) {
                     para_ptr = new (buffer) Stellarator(
-                        input["q"], input["shat"], input["tau"],
-                        input["epsilon_n"], input["eta_i"], input["eta_e"],
-                        input["b_theta"], input["beta_e"], input["R"],
-                        input["vt"], input["length"], input["theta"],
-                        input["npoints"], input["iteration_step_limit"],
-                        input["eta_k"], input["lh"], input["mh"],
-                        input["epsilon_h_t"], input["alpha_0"],
-                        input["r_over_R"]);
+                        input["q"s], input["shat"s], input["tau"s],
+                        input["epsilon_n"s], input["eta_i"s], input["eta_e"s],
+                        input["b_theta"s], input["beta_e"s], input["R"s],
+                        input["vt"s], input["length"s], input["theta"s],
+                        input["npoints"s], input["iteration_step_limit"s],
+                        input["eta_k"s], input["lh"s], input["mh"s],
+                        input["epsilon_h_t"s], input["alpha_0"s],
+                        input["r_over_R"s]);
                 } else {
                     throw std::runtime_error(
                         "Input configuration not supported yet.");
