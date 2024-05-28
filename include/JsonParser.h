@@ -104,6 +104,9 @@ struct Value {
         return T{};
     }
 
+    std::string& as_string();
+    const std::string& as_string() const;
+
     template <typename T>
     bool operator<(
         T val) const requires std::is_arithmetic_v<std::remove_reference_t<T>> {
@@ -174,6 +177,8 @@ struct Value {
 
     // formatted output
     std::string pretty_print(std::size_t = 0) const;
+
+    Value clone() const;
 
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;

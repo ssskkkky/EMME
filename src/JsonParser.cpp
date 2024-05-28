@@ -39,6 +39,15 @@ bool Value::as_boolean() const {
     return static_cast<Boolean*>(ptr.get())->content;
 };
 
+std::string& Value::as_string() {
+    expected_cat(ValueCategory::String);
+    return static_cast<String*>(ptr.get())->content;
+}
+const std::string& Value::as_string() const {
+    expected_cat(ValueCategory::String);
+    return static_cast<String*>(ptr.get())->content;
+}
+
 Value::operator std::string() const {
     expected_cat(ValueCategory::String);
     return static_cast<String*>(ptr.get())->content;
@@ -210,6 +219,40 @@ std::string Value::pretty_print(std::size_t indent) const {
             break;
     }
     return oss.str();
+}
+
+Value Value::clone() const {
+    switch (value_cat) {
+        case ValueCategory::NumberInt:
+            return {value_cat, new NumberInt{as_number<int>()}};
+            break;
+        case ValueCategory::NumberFloat:
+            return {value_cat, new NumberFloat{as_number<double>()}};
+            break;
+        case ValueCategory::Boolean:
+            return {value_cat, new Boolean{as_boolean()}};
+            break;
+        case ValueCategory::String:
+            return {value_cat, new String{as_string()}};
+            break;
+        case ValueCategory::Array: {
+            auto arr = new Array;
+            for (const auto& value : as_array()) {
+                arr->content.push_back(value.clone());
+            }
+            return {value_cat, arr};
+        }
+        case ValueCategory::Object: {
+            auto obj = new Object;
+            for (const auto& [key, val] : as_object()) {
+                obj->content.emplace(key, val.clone());
+            }
+            return {value_cat, obj};
+        }
+        case ValueCategory::Null:
+            break;
+    }
+    return {value_cat, new Null{}};
 }
 
 void Value::print_space(std::ostream& os, std::size_t indent) {

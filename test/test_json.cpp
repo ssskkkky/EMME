@@ -60,7 +60,14 @@ int main() {
         std::cout << "Unformatted output: " << obj.dump() << "\n\n";
         std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
 
-        std::cout << "Property a < 42 ? " << (obj["a"] < 42) << '\n';
+        {
+            auto obj_copy = obj.clone();
+            std::cout << "Clone the whole object and print it:\n"
+                      << obj_copy.pretty_print() << '\n'
+                      << "The destruct sequence of the cloned object:\n";
+        }
+
+        std::cout << "\nProperty a < 42 ? " << (obj["a"] < 42) << '\n';
         obj["a"] += 1;
         std::cout << "Property a after adding 1: " << obj["a"].dump() << '\n';
         obj["a"] = 69;
@@ -78,7 +85,7 @@ int main() {
         try {
             parse(json_failure_1);
         } catch (std::exception& e) {
-            std::cout << "Try to parse a problemetic json:\n"
+            std::cout << "\nTry to parse a problemetic json:\n"
                       << json_failure_1 << '\n';
             std::cout << e.what() << '\n';
         }
