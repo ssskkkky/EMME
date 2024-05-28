@@ -298,6 +298,8 @@ auto integrate(const Func& func,
                                                 n_type{}, tol, prec);
         }
     }
+    throw std::runtime_error("integration_start_points should be 15 or 31");
+    return std::complex{0.0, 0.0};  // we will never reach here
 }
 
 template <typename Func, typename Tx>

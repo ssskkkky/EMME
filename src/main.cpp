@@ -31,7 +31,8 @@ int main() {
     for (auto& [key, val] : input_all.as_object()) {
         if (val.is_object()) {
             for (input[key] = val["head"].as_number<double>();
-                 input[key] <= val["tail"];
+                 std::abs(input[key].as_number<double>() - val["head"]) <=
+                 std::abs(val["tail"].as_number<double>() - val["head"]);
                  input[key] += val["step"].as_number<double>()) {
                 Parameters* para_ptr = nullptr;
                 // Parameters and Stellarator are both trivially destructible,
@@ -54,10 +55,10 @@ int main() {
                         input["b_theta"], input["beta_e"], input["R"],
                         input["vt"], input["length"], input["theta"],
                         input["npoints"], input["iteration_step_limit"],
-                        input["integration_iteration_limit"],
-                        input["integration_start_points"],
                         input["integration_precision"],
-                        input["integration_accuracy"], input["eta_k"],
+                        input["integration_accuracy"],
+                        input["integration_iteration_limit"],
+                        input["integration_start_points"], input["eta_k"],
                         input["lh"], input["mh"], input["epsilon_h_t"],
                         input["alpha_0"], input["r_over_R"]);
                 } else {
