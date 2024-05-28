@@ -2,8 +2,9 @@
 #define JSON_PARSER_H
 
 #include <functional>
-#include <istream>
 #include <memory>  // unique_ptr
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -17,9 +18,10 @@ namespace util {
 namespace json {
 
 enum class ValueCategory {
-    Niente,
+    Null,
     NumberInt,
     NumberFloat,
+    Boolean,
     String,
     Array,
     Object,
@@ -27,11 +29,15 @@ enum class ValueCategory {
 
 const char* get_value_category_name(ValueCategory);
 
+struct Null {};
 struct NumberInt {
     int content;
 };
 struct NumberFloat {
     double content;
+};
+struct Boolean {
+    bool content;
 };
 
 /**
@@ -77,6 +83,8 @@ struct Value {
     operator double() const;
     // operator int() const;
     operator std::string() const;
+
+    bool as_boolean() const;
 
     template <typename T>
     T as_number()
@@ -148,6 +156,7 @@ struct Value {
     bool is_array() const;
     bool is_number() const;
     bool is_string() const;
+    bool is_boolean() const;
 
     std::size_t size() const;
     std::size_t empty() const;
@@ -183,6 +192,7 @@ struct JsonLexer {
         STRING,
         INTEGER,
         FLOAT,
+        PRIMITIVE,
         BRACE_LEFT = '{',
         BRACE_RIGHT = '}',
         BRACKET_LEFT = '[',
@@ -197,15 +207,18 @@ struct JsonLexer {
         int col;
     };
 
-    JsonLexer(std::istream&);
+    JsonLexer(std::istream&, std::string = {});
 
     Token get_token();
     Token peek_token();
+
+    const std::string& get_filename() const;
 
     operator bool() const;
 
    private:
     std::istream& is_;
+    std::string filename;
     Token buffer{};
     int row;
     int col;
@@ -218,6 +231,8 @@ struct JsonLexer {
     static bool is_digit_start(char c);
     // tab, lf, cr or space
     static bool is_whitespace(char c);
+
+    void report_lexical_error() const;
 };
 
 #ifdef EMME_DEBUG
@@ -225,17 +240,17 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token);
 #endif
 
 struct JsonParser {
-    JsonParser(JsonLexer&&, std::string = {});
+    JsonParser(JsonLexer&&);
     Value parse();
 
    private:
     JsonLexer lexer;
-    std::string filename;
 
     Value parse_value();
     Value parse_string(const JsonLexer::Token&);
     Value parse_int(const JsonLexer::Token&);
     Value parse_float(const JsonLexer::Token&);
+    Value parse_primitive(const JsonLexer::Token&);
     Value parse_object();
     Value parse_array();
 

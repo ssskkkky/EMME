@@ -23,12 +23,14 @@ int main() {
 
         try {
             double d = obj["abc"];
+            static_cast<void>(d);
         } catch (std::exception& e) {
             std::cout << "Try to get an undefined property as number\n";
             std::cout << e.what() << '\n';
         }
         try {
             double d = obj["obj"];
+            static_cast<void>(d);
         } catch (std::exception& e) {
             std::cout << "Try to get number from object\n";
             std::cout << e.what() << '\n';
@@ -70,11 +72,20 @@ int main() {
         std::cout << "The destruct sequence:\n";
     }
     {  // test syntax error detection
-        char json[] = "{\"a\":1,,\"b\":2}";
+        char json_failure_1[] = "{\"a\":1,,\"b\":2}";
         try {
-            parse(json);
+            parse(json_failure_1);
         } catch (std::exception& e) {
-            std::cout << "Try to parse a problemetic json:\n" << json << '\n';
+            std::cout << "Try to parse a problemetic json:\n"
+                      << json_failure_1 << '\n';
+            std::cout << e.what() << '\n';
+        }
+        char json_failure_2[] = "{\"a\":1,\"b\":2,c:3}";
+        try {
+            parse(json_failure_2);
+        } catch (std::exception& e) {
+            std::cout << "Try to parse a problemetic json:\n"
+                      << json_failure_2 << '\n';
             std::cout << e.what() << '\n';
         }
     }

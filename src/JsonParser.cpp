@@ -1,8 +1,9 @@
+#include "JsonParser.h"
+
 #include <cstdlib>  // atof, atoi
+#include <cstring>  // strcmp, strlen
 #include <fstream>  // ifstream
 #include <sstream>  // ostringstream
-
-#include "JsonParser.h"
 
 namespace util {
 namespace json {
@@ -13,9 +14,10 @@ const char* get_value_category_name(ValueCategory val_cat) {
         return #p;          \
         break;
     switch (val_cat) {
-        PROCESS_CAT_NAME(ValueCategory::Niente)
+        PROCESS_CAT_NAME(ValueCategory::Null)
         PROCESS_CAT_NAME(ValueCategory::NumberInt)
         PROCESS_CAT_NAME(ValueCategory::NumberFloat)
+        PROCESS_CAT_NAME(ValueCategory::Boolean)
         PROCESS_CAT_NAME(ValueCategory::String)
         PROCESS_CAT_NAME(ValueCategory::Array)
         PROCESS_CAT_NAME(ValueCategory::Object)
@@ -39,6 +41,10 @@ Value::operator double() const {
 // }
 // NOTE: Can not do this due to an annoying C builtin operator[](ptrdiff_t,
 // const char*)
+
+bool Value::as_boolean() const {
+    return static_cast<Boolean*>(ptr.get())->content;
+};
 
 Value::operator std::string() const {
     expected_cat(ValueCategory::String);
@@ -100,6 +106,9 @@ bool Value::is_number() const {
 bool Value::is_string() const {
     return value_cat == ValueCategory::String;
 }
+bool Value::is_boolean() const {
+    return value_cat == ValueCategory::Boolean;
+}
 
 std::size_t Value::size() const {
     expected_cat(ValueCategory::Object, ValueCategory::Array);
@@ -125,7 +134,11 @@ ValueCategory Value::value_category() const {
 std::string Value::dump() const {
     std::ostringstream oss;
     switch (value_cat) {
-        case ValueCategory::Niente:  // This should never get matched
+        case ValueCategory::Null:
+            oss << "null";
+            break;
+        case ValueCategory::Boolean:
+            oss << (as_boolean() ? "true" : "false");
             break;
         case ValueCategory::NumberInt:
             oss << as_number<int>();
@@ -162,9 +175,10 @@ std::string Value::dump() const {
 std::string Value::pretty_print(std::size_t indent) const {
     std::ostringstream oss;
     switch (value_cat) {
-        case ValueCategory::Niente:  // This should never get matched
+        case ValueCategory::Null:
         case ValueCategory::NumberInt:
         case ValueCategory::NumberFloat:
+        case ValueCategory::Boolean:
         case ValueCategory::String:
             oss << dump();
             break;
@@ -209,7 +223,8 @@ void Value::print_space(std::ostream& os, std::size_t indent) {
     for (std::size_t i = 0; i < indent; ++i) { os << ' '; }
 }
 
-JsonLexer::JsonLexer(std::istream& is) : is_(is), row(1), col(1) {}
+JsonLexer::JsonLexer(std::istream& is, std::string file_name)
+    : is_(is), filename(file_name), row(1), col(1) {}
 
 JsonLexer::Token JsonLexer::get_token() {
     if (!is_buffer_full || is_buffer_output) { read_token_to_buffer(); }
@@ -221,6 +236,10 @@ JsonLexer::Token JsonLexer::peek_token() {
     if (!is_buffer_full || is_buffer_output) { read_token_to_buffer(); }
     is_buffer_output = false;
     return buffer;
+}
+
+const std::string& JsonLexer::get_filename() const {
+    return filename;
 }
 
 void JsonLexer::read_token_to_buffer() {
@@ -268,6 +287,30 @@ void JsonLexer::read_token_to_buffer() {
         } while (is_.get(c) && is_digit(c));
         buffer.name = is_float ? TokenName::FLOAT : TokenName::INTEGER;
         is_.unget();
+    } else if (c == 't' || c == 'f') {
+        // a boolean
+        buffer.name = TokenName::PRIMITIVE;
+        char expected[6] = "true";
+        if (c == 'f') { std::strcpy(expected, "false"); }
+        char tmp[6] = {c};
+        is_.readsome(tmp + 1, std::strlen(expected) - 1);
+        if (std::strcmp(tmp, expected) == 0) {
+            buffer.content = expected;
+        } else {
+            report_lexical_error();
+        }
+    } else if (c == 'n') {
+        // null
+        buffer.name = TokenName::PRIMITIVE;
+        char tmp[5] = {c};
+        is_.readsome(tmp + 1, 3);
+        if (std::strcmp(tmp, "null") == 0) {
+            buffer.content = "null";
+        } else {
+            report_lexical_error();
+        }
+    } else {
+        report_lexical_error();
     }
     buffer.row = row;
     is_buffer_full = true;
@@ -285,6 +328,13 @@ bool JsonLexer::is_whitespace(char c) {
     return c == '\t' || c == '\n' || c == '\r' || c == ' ';
 }
 
+void JsonLexer::report_lexical_error() const {
+    std::ostringstream oss;
+    oss << filename << ':' << row << ':' << col
+        << ": error: unrecognized token";
+    throw std::runtime_error(oss.str());
+}
+
 #ifdef EMME_DEBUG
 std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
     return os << "{ Name: " << ([&token] {
@@ -293,6 +343,7 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
         return #p;            \
         break;
                switch (token.name) {
+                   PROCESS_TOKEN_NAME(JsonLexer::TokenName::PRIMITIVE)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::STRING)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::INTEGER)
                    PROCESS_TOKEN_NAME(JsonLexer::TokenName::FLOAT)
@@ -312,8 +363,7 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token) {
 }
 #endif  // EMME_DEBUG
 
-JsonParser::JsonParser(JsonLexer&& json_lexer, std::string file_name)
-    : lexer(std::move(json_lexer)), filename(file_name) {}
+JsonParser::JsonParser(JsonLexer&& json_lexer) : lexer(std::move(json_lexer)) {}
 
 Value JsonParser::parse() {
     if (!lexer) { report_syntax_error(); }  // token list is empty
@@ -335,6 +385,8 @@ Value JsonParser::parse_value() {
             return parse_object();
         case JsonLexer::TokenName::BRACKET_LEFT:
             return parse_array();
+        case JsonLexer::TokenName::PRIMITIVE:
+            return parse_primitive(token);
         default:
             report_syntax_error(token);
             return Value{};  // unreachable
@@ -361,6 +413,15 @@ Value JsonParser::parse_float(const JsonLexer::Token& token) {
     }
     return {ValueCategory::NumberFloat,
             new NumberFloat{std::atof(token.content.c_str())}};
+}
+Value JsonParser::parse_primitive(const JsonLexer::Token& token) {
+    if (token.name != JsonLexer::TokenName::PRIMITIVE) {
+        report_syntax_error(token);
+    }
+    if (token.content.front() == 'n') {
+        return {ValueCategory::Null, new Null{}};
+    }
+    return {ValueCategory::Boolean, new Boolean{token.content.front() == 't'}};
 }
 
 Value JsonParser::parse_object() {
@@ -428,8 +489,8 @@ JsonLexer::Token JsonParser::try_peek_from_lexer() {
 
 void JsonParser::report_syntax_error(const JsonLexer::Token& token) {
     std::ostringstream oss;
-    oss << filename << ':' << token.row << ':' << token.col << ':'
-        << "error: unexpected content '" << token.content << '\'';
+    oss << lexer.get_filename() << ':' << token.row << ':' << token.col
+        << ": error: unexpected content '" << token.content << '\'';
 #ifdef EMME_DEBUG
     oss << ". The token is " << token;
 #endif
@@ -448,7 +509,7 @@ Value parse(const char* str) {
 
 Value parse_file(std::string file_name) {
     std::ifstream ifs(file_name);  // Its destructor will close the file
-    return JsonParser{ifs, file_name}.parse();
+    return JsonParser{JsonLexer{ifs, file_name}}.parse();
 }
 
 }  // namespace json
