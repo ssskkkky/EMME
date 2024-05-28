@@ -42,7 +42,11 @@ int main() {
                         input["epsilon_n"], input["eta_i"], input["eta_e"],
                         input["b_theta"], input["beta_e"], input["R"],
                         input["vt"], input["length"], input["theta"],
-                        input["npoints"], input["iteration_step_limit"]);
+                        input["npoints"], input["iteration_step_limit"],
+                        input["integration_precision"],
+                        input["integration_accuracy"],
+                        input["integration_iteration_limit"],
+                        input["integration_start_points"]);
                 } else if (!std::string{"stellarator"}.compare(input["conf"])) {
                     para_ptr = new (buffer) Stellarator(
                         input["q"], input["shat"], input["tau"],
@@ -50,9 +54,12 @@ int main() {
                         input["b_theta"], input["beta_e"], input["R"],
                         input["vt"], input["length"], input["theta"],
                         input["npoints"], input["iteration_step_limit"],
-                        input["eta_k"], input["lh"], input["mh"],
-                        input["epsilon_h_t"], input["alpha_0"],
-                        input["r_over_R"]);
+                        input["integration_iteration_limit"],
+                        input["integration_start_points"],
+                        input["integration_precision"],
+                        input["integration_accuracy"], input["eta_k"],
+                        input["lh"], input["mh"], input["epsilon_h_t"],
+                        input["alpha_0"], input["r_over_R"]);
                 } else {
                     throw std::runtime_error(
                         "Input configuration not supported yet.");
