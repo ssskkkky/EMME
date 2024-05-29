@@ -154,10 +154,15 @@ struct Value {
         }
     }
 
-    const Value& operator[](std::size_t) const;
+    decltype(auto) operator[](std::integral auto idx) const {
+        return as_array()[idx];
+    }
+    decltype(auto) operator[](std::integral auto idx) {
+        return as_array()[idx];
+    }
 
     Value& operator[](const std::string&);
-    Value& operator[](std::size_t);
+    Value& operator[](const char*);
 
     const Value& at(const std::string&) const;
     const Value& at(std::size_t) const;

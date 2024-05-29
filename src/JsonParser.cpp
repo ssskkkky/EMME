@@ -85,15 +85,12 @@ Value::operator std::string() const {
     expected_cat(ValueCategory::String);
     return static_cast<String*>(ptr.get())->content;
 }
-const Value& Value::operator[](std::size_t idx) const {
-    return as_array()[idx];
-}
 
 Value& Value::operator[](const std::string& key) {
     return as_object()[key];
 }
-Value& Value::operator[](std::size_t idx) {
-    return as_array()[idx];
+Value& Value::operator[](const char* key) {
+    return as_object()[key];
 }
 
 const Value& Value::at(const std::string& key) const {
