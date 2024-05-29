@@ -1,19 +1,24 @@
 {
     "conf":"tokamak",                          
-    "q":0.5,
-    "shat":0.6,
+    "q":1.0,
+    "shat":{"head":0.4,"tail":0.4,"step":0.05},
     "tau":1.0,
     "epsilon_n":0.2,
     "eta_i":2.5,
     "eta_e":2.0,
     "b_theta":0.25,
-    "beta_e":0.002,
+    "beta_e":0.00000004,
     "R":5.0,
     "vt":1.0,
     "length":20.0,
     "theta":0.0,
-    "npoints":128,
-    "iteration_step_limit":100,
-    "initial_guess": [-0.2, 0.09]
+    "npoints":512,
+    "iteration_step_limit":20,
+    "initial_guess": [-0.17, 0.16],
+    "integration_precision":1.e-6,
+    "integration_accuracy":1.e-6,
+    "integration_iteration_limit":100,
+    "_comment on integration_starat_points":"This should be 15 or 31 for now",
+    "integration_start_points":15
 }
                            
