@@ -186,15 +186,15 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
     //     (omega -
     //      omega_s_i *
     //          (1.0 +
-    //           eta_i * (0.5 * std::pow((q * R * (eta - eta_p)) / (vt * tau),
-    //           2) -
+    //           eta_i * (0.5 * std::pow((q * R * (eta - eta_p)) / (vt *
+    //           tau), 2) -
     //                    1.5))) *
     //     integration_lambda_tau(eta, eta_p, tau);
 
     // auto result = integrand(1.0);
 
-    // Replace "integrate" with the appropriate function call from your chosen
-    // numerical integration library
+    // Replace "integrate" with the appropriate function call from your
+    // chosen numerical integration library
 
     return -std::complex<double>(0, 1.0) * (q * R) /
            (vt * std::sqrt((2.0 * M_PI))) * result;

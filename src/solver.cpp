@@ -126,4 +126,3 @@ std::vector<std::complex<double>> LUSolveLinearSystem(
 
     return x;
 }
-

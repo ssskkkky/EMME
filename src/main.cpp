@@ -9,6 +9,7 @@
 #include "Matrix.h"
 #include "Parameters.h"
 // #include "fenv.h" //this is for check inf or nan
+#include "Timer.h"
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
@@ -92,7 +93,9 @@ int main() {
                           << std::endl;
                 eigenvalue << eigen_solver.eigen_value.real() << " "
                            << eigen_solver.eigen_value.imag() << std::endl;
+                Timer::get_timer().start_timing("SVD");
                 auto null_space = eigen_solver.nullSpace();
+                Timer::get_timer().pause_timing("SVD");
                 if (!outfile.is_open()) {
                     // Handle error
                     return 1;
@@ -107,6 +110,8 @@ int main() {
         }
     }
     outfile.close();
+    Timer::get_timer().print();
+    std::cout << std::endl;
 
     return 0;
 }
