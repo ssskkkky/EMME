@@ -114,7 +114,7 @@ class EigenSolver {
         eigen_matrix_old = eigen_matrix;
         const char* upper = "Upper";
         const lapack_int dim = eigen_matrix.getRows();
-        lapack_int work_length = dim;
+        lapack_int work_length = dim * dim;
         lapack_int optimal_work_length{};
         std::vector<value_type> work(work_length);
         std::vector<lapack_int> ipiv(dim);

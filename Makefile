@@ -33,7 +33,7 @@ header_in_main = Grid.h JsonParser.h Matrix.h Parameters.h functions.h singulari
 
 all: $(TARGET)
 
-Parameters.o: functions.h
+Parameters.o: functions.h Timer.h
 solver.o: Grid.h Matrix.h Parameters.h functions.h
 
 # General Rules

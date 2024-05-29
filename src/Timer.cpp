@@ -19,7 +19,7 @@ void Timer::start_timing(std::string func_name) {
 void Timer::pause_timing(std::string func_name) {
     auto end_time = high_resolution_clock::now();
     auto elapsed_time = end_time - time_consuming[func_name].second;
-    time_consuming[func_name].first = elapsed_time;
+    time_consuming[func_name].first += elapsed_time;
 }
 
 void Timer::reset(std::string func_name) {

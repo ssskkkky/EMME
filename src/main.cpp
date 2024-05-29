@@ -15,6 +15,7 @@
 #include "solver.h"
 
 int main() {
+    Timer::get_timer().start_timing("All");
     std::string filename = "input.json";
     std::ofstream outfile("emme_eigen_vector.csv");
     std::ofstream eigenvalue("emme_eigen_value.csv");
@@ -30,6 +31,7 @@ int main() {
     alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
 
     for (auto& [key, val] : input_all.as_object()) {
+        Timer::get_timer().start_timing("initial");
         if (val.is_object()) {
             for (input[key] = val["head"].as_number<double>();
                  std::abs(input[key].as_number<double>() - val["head"]) <=
@@ -78,9 +80,15 @@ int main() {
                 auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
                     para, omega_initial_guess, coeff_matrix, grid_info);
                 std::cout << key << ":" << input[key] << std::endl;
+                Timer::get_timer().pause_timing("initial");
 
                 for (int j = 0; j <= para.iteration_step_limit; j++) {
+                    Timer::get_timer().start_timing(
+                        "newtonTracSecantIteration");
                     eigen_solver.newtonTraceSecantIteration();
+                    Timer::get_timer().pause_timing(
+                        "newtonTracSecantIteration");
+
                     std::cout << eigen_solver.eigen_value << std::endl;
                     if (std::abs(eigen_solver.d_eigen_value) <
                         std::abs(tol * eigen_solver.eigen_value)) {
@@ -110,6 +118,7 @@ int main() {
         }
     }
     outfile.close();
+    Timer::get_timer().pause_timing("All");
     Timer::get_timer().print();
     std::cout << std::endl;
 
