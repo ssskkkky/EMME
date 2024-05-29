@@ -18,7 +18,7 @@ namespace util {
 namespace json {
 
 enum class ValueCategory {
-    Null,
+    Null = 0,
     NumberInt,
     NumberFloat,
     Boolean,
@@ -68,7 +68,7 @@ struct Value {
    public:
     using object_container_type = std::unordered_map<std::string, Value>;
     using array_container_type = std::vector<Value>;
-    Value() = default;
+    Value();
 
     // Type information in deleter is stored during contruction
     template <typename T>
@@ -76,8 +76,8 @@ struct Value {
         : ptr(raw_ptr,
 #ifdef EMME_DEBUG
               [cat](const void* data) {
-                  delete static_cast<const T*>(data);
                   std::cout << get_value_category_name(cat) << " deleted.\n";
+                  delete static_cast<const T*>(data);
               }
 #else
               [](const void* data) {
@@ -87,6 +87,14 @@ struct Value {
               ),
           value_cat(cat) {
     }
+
+    Value clone() const;
+
+    Value(const Value&);
+    Value& operator=(const Value&);
+
+    Value(Value&&) = default;
+    Value& operator=(Value&&) = default;
 
     // NOTE: Can not cast to any integer type due to an annoying C builtin
     // operator[](ptrdiff_t, const char*), as far as I still want to support
@@ -120,13 +128,14 @@ struct Value {
     }
 
     template <typename T>
-    void operator+=(
-        T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
+    void operator+=(const T& val) requires std::convertible_to<T, double> {
         expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
         if (value_cat == ValueCategory::NumberFloat) {
-            static_cast<NumberFloat*>(ptr.get())->content += val;
+            static_cast<NumberFloat*>(ptr.get())->content +=
+                static_cast<double>(val);
         } else {
-            static_cast<NumberInt*>(ptr.get())->content += val;
+            static_cast<NumberInt*>(ptr.get())->content +=
+                static_cast<int>(val);
         }
     }
 
@@ -180,8 +189,6 @@ struct Value {
 
     // formatted output
     std::string pretty_print(std::size_t = 0) const;
-
-    Value clone() const;
 
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;

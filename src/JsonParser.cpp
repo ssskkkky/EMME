@@ -26,6 +26,39 @@ const char* get_value_category_name(ValueCategory val_cat) {
     return "";  // unreachable
 }
 
+Value::Value() : value_cat{} {}
+
+Value::Value(const Value& other) : value_cat{} {
+    // value_cat is initialized as Null to prevent accessing non allocated
+    // address
+    *this = other;
+}
+
+Value& Value::operator=(const Value& other) {
+    other.expected_cat(ValueCategory::Boolean, ValueCategory::NumberFloat,
+                       ValueCategory::NumberInt, ValueCategory::String);
+    // modify content directly with "plain value"
+    if (value_cat == other.value_cat) {
+#define PROCESS_TYPE(t)                                      \
+    case (ValueCategory::t):                                 \
+        static_cast<t*>(ptr.get())->content =                \
+            static_cast<const t*>(other.ptr.get())->content; \
+        break;
+        switch (value_cat) {
+            PROCESS_TYPE(Boolean)
+            PROCESS_TYPE(NumberFloat)
+            PROCESS_TYPE(NumberInt)
+            PROCESS_TYPE(String)
+            default:
+                break;
+        }
+#undef PROCESS_TYPE
+    } else {
+        *this = other.clone();
+    }
+    return *this;
+}
+
 Value::operator double() const {
     expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
     if (value_cat == ValueCategory::NumberFloat) {

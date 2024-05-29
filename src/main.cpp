@@ -31,9 +31,8 @@ int main() {
 
     for (auto& [key, val] : input_all.as_object()) {
         if (val.is_object()) {
-            for (input[key] = val["head"s].as_number<double>();
-                 input[key] <= val["tail"s];
-                 input[key] += val["step"s].as_number<double>()) {
+            for (input[key] = val["head"s]; input[key] <= val["tail"s];
+                 input[key] += val["step"s]) {
                 Parameters* para_ptr = nullptr;
                 // Parameters and Stellarator are both trivially destructible,
                 // no need to bother calling their destructors.
