@@ -2,8 +2,9 @@
 #define JSON_PARSER_H
 
 #include <functional>
-#include <istream>
 #include <memory>  // unique_ptr
+#include <ostream>
+#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <variant>
@@ -17,9 +18,10 @@ namespace util {
 namespace json {
 
 enum class ValueCategory {
-    Niente,
+    Null = 0,
     NumberInt,
     NumberFloat,
+    Boolean,
     String,
     Array,
     Object,
@@ -27,11 +29,15 @@ enum class ValueCategory {
 
 const char* get_value_category_name(ValueCategory);
 
+struct Null {};
 struct NumberInt {
     int content;
 };
 struct NumberFloat {
     double content;
+};
+struct Boolean {
+    bool content;
 };
 
 /**
@@ -43,6 +49,9 @@ struct Value {
     template <typename... Ts>
     void expected_cat(Ts... cats) const
         requires(std::same_as<Ts, ValueCategory>&&...) {
+        if (value_cat == ValueCategory::Null) {
+            throw std::runtime_error("Undefined Property");
+        }
         if (((value_cat != cats) && ...)) {
             std::ostringstream oss;
             if constexpr (sizeof...(Ts) == 1) {
@@ -59,24 +68,42 @@ struct Value {
    public:
     using object_container_type = std::unordered_map<std::string, Value>;
     using array_container_type = std::vector<Value>;
-    Value() = default;
+    Value();
 
     // Type information in deleter is stored during contruction
     template <typename T>
     Value(ValueCategory cat, T* raw_ptr)
         : ptr(raw_ptr,
-              [cat](const void* data) {
-                  delete static_cast<const T*>(data);
 #ifdef EMME_DEBUG
+              [cat](const void* data) {
                   std::cout << get_value_category_name(cat) << " deleted.\n";
+                  delete static_cast<const T*>(data);
+              }
+#else
+              [](const void* data) {
+                  delete static_cast<const T*>(data);
+              }
 #endif
-              }),
+              ),
           value_cat(cat) {
     }
 
+    Value clone() const;
+
+    Value(const Value&);
+    Value& operator=(const Value&);
+
+    Value(Value&&) = default;
+    Value& operator=(Value&&) = default;
+
+    // NOTE: Can not cast to any integer type due to an annoying C builtin
+    // operator[](ptrdiff_t, const char*), as far as I still want to support
+    // operator[] for getting object property
+
     operator double() const;
-    // operator int() const;
     operator std::string() const;
+
+    bool as_boolean() const;
 
     template <typename T>
     T as_number()
@@ -90,6 +117,9 @@ struct Value {
         return T{};
     }
 
+    std::string& as_string();
+    const std::string& as_string() const;
+
     template <typename T>
     bool operator<(
         T val) const requires std::is_arithmetic_v<std::remove_reference_t<T>> {
@@ -97,27 +127,46 @@ struct Value {
         return as_number<double>() < val;
     }
 
-    template <typename T>
-    void operator+=(
-        T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
-        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
-        if (value_cat == ValueCategory::NumberFloat) {
-            static_cast<NumberFloat*>(ptr.get())->content += val;
-        } else {
-            static_cast<NumberInt*>(ptr.get())->content += val;
-        }
-    }
+#define define_compond_assignment_operator(op, a_op)                          \
+    do {                                                                      \
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);   \
+        if (value_cat == ValueCategory::NumberFloat) {                        \
+            static_cast<NumberFloat*>(ptr.get())->content a_op val;           \
+        } else {                                                              \
+            if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {   \
+                static_cast<NumberInt*>(ptr.get())                            \
+                    ->content a_op static_cast<int>(val);                     \
+            } else {                                                          \
+                *this = Value{                                                \
+                    ValueCategory::NumberFloat,                               \
+                    new NumberFloat{                                          \
+                        static_cast<NumberInt*>(ptr.get())->content op val}}; \
+            }                                                                 \
+        }                                                                     \
+    } while (0)
 
     template <typename T>
-    void operator=(
-        T val) requires std::is_arithmetic_v<std::remove_reference_t<T>> {
-        using type = std::remove_reference_t<T>;
+    void operator+=(const T& val) requires std::convertible_to<T, double> {
+        define_compond_assignment_operator(+, +=);
+    }
+    template <typename T>
+    void operator-=(const T& val) requires std::convertible_to<T, double> {
+        define_compond_assignment_operator(-, -=);
+    }
+#undef define_compond_assignment_operator
+
+    template <typename T>
+    void operator=(T val) requires std::convertible_to<T, double> {
         if (value_cat == ValueCategory::NumberInt) {
-            static_cast<NumberInt*>(ptr.get())->content = val;
+            if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {
+                static_cast<NumberInt*>(ptr.get())->content = val;
+            } else {
+                *this = Value{ValueCategory::NumberFloat, new NumberFloat{val}};
+            }
         } else if (value_cat == ValueCategory::NumberFloat) {
             static_cast<NumberFloat*>(ptr.get())->content = val;
         } else {
-            if constexpr (std::is_integral_v<type>) {
+            if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {
                 *this = Value{ValueCategory::NumberInt, new NumberInt{val}};
             } else {
                 *this = Value{ValueCategory::NumberFloat, new NumberFloat{val}};
@@ -125,10 +174,15 @@ struct Value {
         }
     }
 
-    const Value& operator[](std::size_t) const;
+    decltype(auto) operator[](std::integral auto idx) const {
+        return as_array()[idx];
+    }
+    decltype(auto) operator[](std::integral auto idx) {
+        return as_array()[idx];
+    }
 
     Value& operator[](const std::string&);
-    Value& operator[](std::size_t);
+    Value& operator[](const char*);
 
     const Value& at(const std::string&) const;
     const Value& at(std::size_t) const;
@@ -148,6 +202,7 @@ struct Value {
     bool is_array() const;
     bool is_number() const;
     bool is_string() const;
+    bool is_boolean() const;
 
     std::size_t size() const;
     std::size_t empty() const;
@@ -183,6 +238,7 @@ struct JsonLexer {
         STRING,
         INTEGER,
         FLOAT,
+        PRIMITIVE,
         BRACE_LEFT = '{',
         BRACE_RIGHT = '}',
         BRACKET_LEFT = '[',
@@ -197,15 +253,18 @@ struct JsonLexer {
         int col;
     };
 
-    JsonLexer(std::istream&);
+    JsonLexer(std::istream&, std::string = {});
 
     Token get_token();
     Token peek_token();
+
+    const std::string& get_filename() const;
 
     operator bool() const;
 
    private:
     std::istream& is_;
+    std::string filename;
     Token buffer{};
     int row;
     int col;
@@ -218,6 +277,8 @@ struct JsonLexer {
     static bool is_digit_start(char c);
     // tab, lf, cr or space
     static bool is_whitespace(char c);
+
+    void report_lexical_error() const;
 };
 
 #ifdef EMME_DEBUG
@@ -225,17 +286,17 @@ std::ostream& operator<<(std::ostream& os, const JsonLexer::Token& token);
 #endif
 
 struct JsonParser {
-    JsonParser(JsonLexer&&, std::string = {});
+    JsonParser(JsonLexer&&);
     Value parse();
 
    private:
     JsonLexer lexer;
-    std::string filename;
 
     Value parse_value();
     Value parse_string(const JsonLexer::Token&);
     Value parse_int(const JsonLexer::Token&);
     Value parse_float(const JsonLexer::Token&);
+    Value parse_primitive(const JsonLexer::Token&);
     Value parse_object();
     Value parse_array();
 

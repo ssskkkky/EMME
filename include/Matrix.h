@@ -11,13 +11,19 @@
 
 #include "Arithmetics.h"
 
+template <typename T>
+concept has_dimension = requires(T t) {
+    t.get_dim();
+};
+
 template <util::Indexable E1, util::Indexable E2>
-auto operator-(const E1& e1, const E2& e2) {
+auto operator-(const E1& e1,
+               const E2& e2) requires(has_dimension<E1>&& has_dimension<E2>) {
     return util::BinaryExpression<E1, E2, std::minus<void>>{e1, e2};
 }
 
 template <util::Indexable E1, typename E2>
-auto operator/(const E1& e1, const E2& e2) {
+auto operator/(const E1& e1, const E2& e2) requires(has_dimension<E1>) {
     return util::BinaryExpressionA2<E1, E2, std::divides<void>>{e1, e2};
 }
 

@@ -9,5 +9,6 @@
 
     "float": -3.25e-9,
 
-    "answer" :"forty two"
+    "answer" :"forty two",
+    "primitives": [true, false, null]
 }

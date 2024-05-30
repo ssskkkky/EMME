@@ -21,6 +21,7 @@ int main() {
     std::ofstream eigenvalue("emme_eigen_value.csv");
     double tol = 1e-6;
 
+    using namespace std::string_literals;
     auto input_all = util::json::parse_file(filename);
     auto input = util::json::parse_file(filename);
     std::complex<double> omega_initial_guess(

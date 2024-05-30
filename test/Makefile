@@ -1,8 +1,11 @@
-DEBUGFLAGS = -std=c++20 -ggdb -DEMME_DEBUG -I..
+DEBUGFLAGS = -Wall -std=c++20 -ggdb -DEMME_DEBUG -I../include
 CXX = g++
 
 # all tests
 TESTS = test_json
+
+lib_include_path = $(shell realpath .)/../include
+lib_source_path = $(shell realpath .)/../src
 
 all: $(TESTS)
 
@@ -10,8 +13,8 @@ all: $(TESTS)
 test_json: JsonParser.o
 
 # extra header dependences of each .o file
-test_json.o: ../JsonParser.h
-JsonParser.o: ../JsonParser.h
+test_json.o: $(lib_include_path)/JsonParser.h
+JsonParser.o: $(lib_include_path)/JsonParser.h
 
 # The rest should be seldom modified
 
@@ -21,10 +24,10 @@ $(TESTS): %: %.o
 %.o: %.cpp
 	$(CXX) $(DEBUGFLAGS) -o $@ -c $<
 
-%.cpp: ../%.cpp
+%.cpp: $(lib_source_path)/%.cpp
 	cp $< ./
 
 .PHONY: all clean
 
 clean:
-	rm *.o test_json
+	rm -f *.o $(TESTS)
