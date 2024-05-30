@@ -5,6 +5,7 @@
 
 // #include <chrono>
 #include <complex>
+#include <iostream>
 #include <vector>
 
 #include "DedicatedThreadPool.h"
@@ -133,18 +134,19 @@ class EigenSolver {
         d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
         eigen_value += d_eigen_value;
 
-        // if (info != 0) {
-        //     if (info < 0) {
-        //         std::cout << "the " << -info
-        //                   << "-th argument had an illegal value";
-        //     } else {
-        //         std::cout << "The factorization has been completed, but the "
-        //                      "block diagonal matrix D is exactly singular at
-        //                      "
-        //                   << i << ", so the solution could not be computed.";
-        //     }
-        //     throw std::runtime_error("Linear solve failed");
-        // };
+        if (info != 0) {
+            std::ostringstream oss;
+            oss << "Linear solve failed";
+            if (info < 0) {
+                oss << "the " << -info << "-th argument had an illegal value";
+            } else {
+                oss << "The factorization has been completed, but the "
+                    << "block diagonal matrix D is exactly singular at" << info
+                    << ", so the solution could not be computed.";
+            }
+            throw std::runtime_error(oss.str());
+        };
+
         optimal_work_length = work[0].real();
         Timer::get_timer().start_timing("integration");
         matrixAssembler(eigen_matrix);

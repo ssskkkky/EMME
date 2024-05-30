@@ -19,6 +19,9 @@
     "integration_accuracy":1.e-6,
     "integration_iteration_limit":100,
     "_comment on integration_starat_points":"This should be 15 or 31 for now",
-    "integration_start_points":15
+    "integration_start_points":15,
+    "output":"trunc",
+    "iteration_precision":1.e-6
+
 }
                            

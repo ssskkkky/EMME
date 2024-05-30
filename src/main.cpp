@@ -16,14 +16,20 @@
 
 int main() {
     Timer::get_timer().start_timing("All");
-    std::string filename = "input.json";
-    std::ofstream outfile("emme_eigen_vector.csv");
-    std::ofstream eigenvalue("emme_eigen_value.csv");
-    double tol = 1e-6;
-
     using namespace std::string_literals;
+    std::string filename = "input.json";
     auto input_all = util::json::parse_file(filename);
     auto input = util::json::parse_file(filename);
+    std::ofstream outfile("emme_eigen_vector.csv",
+                          input["output"].as_string() == std::string{"append"}
+                              ? std::ios::app
+                              : std::ios::trunc);
+    std::ofstream eigenvalue("emme_eigen_value.csv",
+                             input["output"].as_string() == "append"
+                                 ? std::ios::app
+                                 : std::ios::trunc);
+    double tol = input["iteration_precision"];
+
     std::complex<double> omega_initial_guess(
         input["initial_guess"][0],
         input["initial_guess"]
@@ -36,8 +42,13 @@ int main() {
         if (val.is_object()) {
             for (input[key] = val["head"].as_number<double>();
                  std::abs(input[key].as_number<double>() - val["head"]) <=
-                 std::abs(val["tail"].as_number<double>() - val["head"]);
-                 input[key] += val["step"].as_number<double>()) {
+                 (std::abs(val["tail"].as_number<double>() - val["head"]) +
+                  // This stupid but worked 0.01 term is for dealing with the
+                  // float error
+                  0.01 * std::abs(val["step"].as_number<double>()));
+                 input[key] += std::copysign(
+                     val["step"].as_number<double>(),
+                     (val["tail"].as_number<double>() - val["head"]))) {
                 Parameters* para_ptr = nullptr;
                 // Parameters and Stellarator are both trivially destructible,
                 // no need to bother calling their destructors.
@@ -109,7 +120,7 @@ int main() {
                     // Handle error
                     return 1;
                 }
-                outfile << null_space;
+                outfile << null_space << std::endl;
                 flush(eigenvalue);
                 flush(outfile);
                 // para.beta_e += 0.0005;
