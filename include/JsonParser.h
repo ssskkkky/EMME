@@ -127,22 +127,42 @@ struct Value {
         return as_number<double>() < val;
     }
 
+#define define_compond_assignment_operator(op, a_op)                          \
+    do {                                                                      \
+        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);   \
+        if (value_cat == ValueCategory::NumberFloat) {                        \
+            static_cast<NumberFloat*>(ptr.get())->content a_op val;           \
+        } else {                                                              \
+            if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {   \
+                static_cast<NumberInt*>(ptr.get())                            \
+                    ->content a_op static_cast<int>(val);                     \
+            } else {                                                          \
+                *this = Value{                                                \
+                    ValueCategory::NumberFloat,                               \
+                    new NumberFloat{                                          \
+                        static_cast<NumberInt*>(ptr.get())->content op val}}; \
+            }                                                                 \
+        }                                                                     \
+    } while (0)
+
     template <typename T>
     void operator+=(const T& val) requires std::convertible_to<T, double> {
-        expected_cat(ValueCategory::NumberFloat, ValueCategory::NumberInt);
-        if (value_cat == ValueCategory::NumberFloat) {
-            static_cast<NumberFloat*>(ptr.get())->content +=
-                static_cast<double>(val);
-        } else {
-            static_cast<NumberInt*>(ptr.get())->content +=
-                static_cast<int>(val);
-        }
+        define_compond_assignment_operator(+, +=);
     }
+    template <typename T>
+    void operator-=(const T& val) requires std::convertible_to<T, double> {
+        define_compond_assignment_operator(-, -=);
+    }
+#undef define_compond_assignment_operator
 
     template <typename T>
     void operator=(T val) requires std::convertible_to<T, double> {
         if (value_cat == ValueCategory::NumberInt) {
-            static_cast<NumberInt*>(ptr.get())->content = val;
+            if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {
+                static_cast<NumberInt*>(ptr.get())->content = val;
+            } else {
+                *this = Value{ValueCategory::NumberFloat, new NumberFloat{val}};
+            }
         } else if (value_cat == ValueCategory::NumberFloat) {
             static_cast<NumberFloat*>(ptr.get())->content = val;
         } else {

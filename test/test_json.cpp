@@ -23,8 +23,10 @@ int main() {
         std::cout << "a = " << a << "\nbs[0] = " << b0
                   << "\nprimitives[0] = " << std::boolalpha << bb << '\n';
 
-        a = obj["a"] - obj["bs"][1];
-        std::cout << "a - bs[1] = " << a << '\n';
+        static_cast<void>(obj["a"] += obj["bs"][1]);
+        static_cast<void>(obj["a"] -= obj["bs"][1]);
+        static_assert(
+            std::is_same_v<decltype(obj["a"] - obj["bs"][1]), double>);
 
         try {
             double d = obj["abc"];
