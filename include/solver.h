@@ -5,13 +5,13 @@
 
 // #include <chrono>
 #include <complex>
-#include <iostream>
 #include <vector>
 
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
 #include "Matrix.h"
 #include "Parameters.h"
+#include "Timer.h"
 #include "aligned-allocator.h"
 #include "lapack.h"
 
@@ -73,9 +73,6 @@ class EigenSolver {
 
         lapack_int info{};
 
-        using namespace std::chrono;
-        auto t1 = high_resolution_clock::now();
-
         // const char* jobu = "None";
         // const char* jobvt = "All";
         // LAPACK_zgesvd(jobu, jobvt, &dimm, &dimn, A.data(), &dimm, S.data(),
@@ -87,10 +84,6 @@ class EigenSolver {
                       &dimm, VT.data(), &dimm, work.data(), &lwork,
                       rwork.data(), iwork.data(), &info);
 
-        auto dt = high_resolution_clock::now() - t1;
-        std::cout << duration<double, milliseconds::period>(dt).count()
-                  << std::endl;
-        flush(std::cout);
         auto V = VT;
 
         // ... perform SVD on A and store results in S, U, V
@@ -121,7 +114,7 @@ class EigenSolver {
         eigen_matrix_old = eigen_matrix;
         const char* upper = "Upper";
         const lapack_int dim = eigen_matrix.getRows();
-        lapack_int work_length = dim;
+        lapack_int work_length = dim * dim;
         lapack_int optimal_work_length{};
         std::vector<value_type> work(work_length);
         std::vector<lapack_int> ipiv(dim);
@@ -132,9 +125,11 @@ class EigenSolver {
             work.resize(work_length);
         }
 
+        Timer::get_timer().start_timing("linear solver");
         LAPACK_zsysv(upper, &dim, &dim, eigen_matrix.data(), &dim, ipiv.data(),
                      eigen_matrix_derivative.data(), &dim, work.data(),
                      &work_length, &info);
+        Timer::get_timer().pause_timing("linear solver");
         d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
         eigen_value += d_eigen_value;
 
@@ -151,8 +146,9 @@ class EigenSolver {
         //     throw std::runtime_error("Linear solve failed");
         // };
         optimal_work_length = work[0].real();
-
+        Timer::get_timer().start_timing("integration");
         matrixAssembler(eigen_matrix);
+        Timer::get_timer().pause_timing("integration");
         matrixDerivativeSecantAssembler();
     }
     const Parameters& para;

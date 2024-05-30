@@ -257,27 +257,49 @@ template <typename Func, typename Ta, typename Tb, typename Te>
 auto integrate(const Func& func,
                Ta a,
                Tb b,
-               Te tol,
+               Te tol = 1e-5,
+               Te prec = std::numeric_limits<double>::epsilon(),
                std::size_t max_subdivide = 15,
-               Te prec = std::numeric_limits<double>::epsilon()) {
+               std::size_t integration_start_points = 15) {
     using n_type = typename std::common_type<numeric_t<Ta>, numeric_t<Tb>,
                                              numeric_t<Te>>::type;
-    using impl = detail::gauss_kronrod<15, n_type>;
-    if (std::fpclassify(a) == FP_INFINITE ||
-        std::fpclassify(b) == FP_INFINITE) {
-        // either of the endpoints is infinity
-        return impl::gauss_kronrod_adaptive(
-            [&](n_type x) {
-                const n_type c = std::cos(x);
-                return func(std::tan(x)) / (c * c);
-            },
-            std::atan(static_cast<n_type>(a)),
-            std::atan(static_cast<n_type>(b)), max_subdivide, n_type{}, tol,
-            prec);
-    } else {
-        return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide, n_type{},
-                                            tol, prec);
+    if (integration_start_points == 15) {
+        using impl = detail::gauss_kronrod<15, n_type>;
+        if (std::fpclassify(a) == FP_INFINITE ||
+            std::fpclassify(b) == FP_INFINITE) {
+            // either of the endpoints is infinity
+            return impl::gauss_kronrod_adaptive(
+                [&](n_type x) {
+                    const n_type c = std::cos(x);
+                    return func(std::tan(x)) / (c * c);
+                },
+                std::atan(static_cast<n_type>(a)),
+                std::atan(static_cast<n_type>(b)), max_subdivide, n_type{}, tol,
+                prec);
+        } else {
+            return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide,
+                                                n_type{}, tol, prec);
+        }
+    } else if (integration_start_points == 31) {
+        using impl = detail::gauss_kronrod<31, n_type>;
+        if (std::fpclassify(a) == FP_INFINITE ||
+            std::fpclassify(b) == FP_INFINITE) {
+            // either of the endpoints is infinity
+            return impl::gauss_kronrod_adaptive(
+                [&](n_type x) {
+                    const n_type c = std::cos(x);
+                    return func(std::tan(x)) / (c * c);
+                },
+                std::atan(static_cast<n_type>(a)),
+                std::atan(static_cast<n_type>(b)), max_subdivide, n_type{}, tol,
+                prec);
+        } else {
+            return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide,
+                                                n_type{}, tol, prec);
+        }
     }
+    throw std::runtime_error("integration_start_points should be 15 or 31");
+    return std::complex{0.0, 0.0};  // we will never reach here
 }
 
 template <typename Func, typename Tx>

@@ -19,7 +19,11 @@ struct Parameters {
                double length_input,
                double theta_input,
                int npoints_input,
-               int iteration_step_limit_input);
+               int iteration_step_limit_input,
+               double integration_precision_input,
+               double integration_accuracy_input,
+               int integration_iteration_limit_input,
+               int integration_start_points_input);
 
     // Member variables
     double q;
@@ -37,6 +41,10 @@ struct Parameters {
     double theta;
     int npoints;
     int iteration_step_limit;
+    double integration_precision;
+    double integration_accuracy;
+    int integration_iteration_limit;
+    int integration_start_points;
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor
@@ -103,6 +111,10 @@ struct Stellarator : public Parameters {
                 double theta_input,
                 int npoints_input,
                 int iteration_step_limit_input,
+                double integration_precision_input,
+                double integration_accuracy_input,
+                int integration_iteration_limit_input,
+                int integration_start_points,
                 double eta_k_input,
                 int lh_input,
                 int mh_input,
