@@ -136,7 +136,7 @@ class EigenSolver {
 
         if (info != 0) {
             std::ostringstream oss;
-            oss << "Linear solve failed";
+            oss << "Linear solve failed. ";
             if (info < 0) {
                 oss << "the " << -info << "-th argument had an illegal value";
             } else {
@@ -159,6 +159,7 @@ class EigenSolver {
     double null_space_tol;
     const Matrix<double>& coeff_matrix;
     const Grid<double>& grid_info;
+    unsigned int dim;
     matrix_type eigen_matrix;
     matrix_type eigen_matrix_old;
     matrix_type eigen_matrix_derivative;
@@ -173,10 +174,11 @@ class EigenSolver {
           null_space_tol(1e-1),
           coeff_matrix(coeff_matrix_input),
           grid_info(grid_info_input),
-          eigen_matrix(grid_info.npoints * 2, 2 * grid_info.npoints),
-          eigen_matrix_old(grid_info.npoints * 2, 2 * grid_info.npoints),
-          eigen_matrix_derivative(grid_info.npoints * 2,
-                                  2 * grid_info.npoints) {
+          dim(std::fpclassify(para.beta_e) == FP_ZERO ? grid_info.npoints
+                                                      : 2 * grid_info.npoints),
+          eigen_matrix(dim, dim),
+          eigen_matrix_old(dim, dim),
+          eigen_matrix_derivative(dim, dim) {
         matrixAssembler(eigen_matrix_old);
         eigen_value += d_eigen_value;
         matrixAssembler(eigen_matrix);
@@ -185,11 +187,12 @@ class EigenSolver {
 
     void matrixAssembler(matrix_type& mat) {
 #ifdef EMME_DEBUG
-        if (mat.getRows() != 2 * grid_info.npoints ||
-            mat.getCols() != 2 * grid_info.npoints) {
+
+        if (mat.getRows() != dim || mat.getCols() != dim) {
             throw std::runtime_error(
                 "Matrix dimension and grid length mismatch.");
         }
+
 #endif
 
         static auto kappa_f_tau_all = [&](unsigned i, double eta, double eta_p,
@@ -204,48 +207,76 @@ class EigenSolver {
         std::vector<std::future<void>> res;
 #endif
 
-        for (unsigned int i = 0; i < grid_info.npoints; i++) {
-            for (unsigned int j = i; j < grid_info.npoints; j++) {
-                if (i == j) {
-                    mat(i, j) = (1.0 + 1.0 / para.tau);
-                    mat(i, j + grid_info.npoints) = 0.0;
-                    mat(i + grid_info.npoints, j) = 0.0;
-                    mat(i + grid_info.npoints, j + grid_info.npoints) =
-                        (2.0 * para.tau) / para.beta_e *
-                        para.bi(grid_info.grid[i]);
-                } else {
+        if (std::fpclassify(para.beta_e) == FP_ZERO) {
+            for (unsigned int i = 0; i < grid_info.npoints; i++) {
+                for (unsigned int j = i; j < grid_info.npoints; j++) {
+                    if (i == j) {
+                        mat(i, j) = (1.0 + 1.0 / para.tau);
+                    } else {
 #ifdef MULTI_THREAD
-                    res.push_back(thread_pool.queue_task([&, i, j]() {
+                        res.push_back(thread_pool.queue_task([&, i, j]() {
 #endif
-                        mat(i, j) =
-                            -kappa_f_tau_all(0, grid_info.grid[i],
-                                             grid_info.grid[j], eigen_value) *
-                            coeff_matrix(i, j) * grid_info.dx;
-                        mat(i, j + grid_info.npoints) =
-                            kappa_f_tau_all(1, grid_info.grid[i],
-                                            grid_info.grid[j], eigen_value) *
-                            grid_info.dx;
+                            mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
+                                                         grid_info.grid[j],
+                                                         eigen_value) *
+                                        coeff_matrix(i, j) * grid_info.dx;
 
+                            mat(j, i) = mat(i, j);
+#ifdef MULTI_THREAD
+                        }));
+#endif
+                    }
+                }
+            }
+
+        } else {
+            for (unsigned int i = 0; i < grid_info.npoints; i++) {
+                for (unsigned int j = i; j < grid_info.npoints; j++) {
+                    if (i == j) {
+                        mat(i, j) = (1.0 + 1.0 / para.tau);
+                        mat(i, j + grid_info.npoints) = 0.0;
+                        mat(i + grid_info.npoints, j) = 0.0;
                         mat(i + grid_info.npoints, j + grid_info.npoints) =
-                            kappa_f_tau_all(2, grid_info.grid[i],
-                                            grid_info.grid[j], eigen_value) *
-                            grid_info.dx;
+                            (2.0 * para.tau) / para.beta_e *
+                            para.bi(grid_info.grid[i]);
 
-                        mat(j, i) = mat(i, j);
-
-                        mat(j, i + grid_info.npoints) =
-                            -mat(i, j + grid_info.npoints);
-                        mat(j + grid_info.npoints, i + grid_info.npoints) =
-                            mat(i + grid_info.npoints, j + grid_info.npoints);
-
-                        mat(i + grid_info.npoints, j) =
-                            mat(j, i + grid_info.npoints);
-
-                        mat(j + grid_info.npoints, i) =
-                            mat(i, j + grid_info.npoints);
+                    } else {
 #ifdef MULTI_THREAD
-                    }));
+                        res.push_back(thread_pool.queue_task([&, i, j]() {
 #endif
+                            mat(i, j) = -kappa_f_tau_all(0, grid_info.grid[i],
+                                                         grid_info.grid[j],
+                                                         eigen_value) *
+                                        coeff_matrix(i, j) * grid_info.dx;
+                            mat(i, j + grid_info.npoints) =
+                                kappa_f_tau_all(1, grid_info.grid[i],
+                                                grid_info.grid[j],
+                                                eigen_value) *
+                                grid_info.dx;
+
+                            mat(i + grid_info.npoints, j + grid_info.npoints) =
+                                kappa_f_tau_all(2, grid_info.grid[i],
+                                                grid_info.grid[j],
+                                                eigen_value) *
+                                grid_info.dx;
+
+                            mat(j, i) = mat(i, j);
+
+                            mat(j, i + grid_info.npoints) =
+                                -mat(i, j + grid_info.npoints);
+                            mat(j + grid_info.npoints, i + grid_info.npoints) =
+                                mat(i + grid_info.npoints,
+                                    j + grid_info.npoints);
+
+                            mat(i + grid_info.npoints, j) =
+                                mat(j, i + grid_info.npoints);
+
+                            mat(j + grid_info.npoints, i) =
+                                mat(i, j + grid_info.npoints);
+#ifdef MULTI_THREAD
+                        }));
+#endif
+                    }
                 }
             }
         }
