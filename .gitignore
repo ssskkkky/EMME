@@ -40,3 +40,4 @@ tags
 # data
 *.csv
 *.json
+/release/
