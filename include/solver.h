@@ -187,18 +187,10 @@ class EigenSolver {
 
     void matrixAssembler(matrix_type& mat) {
 #ifdef EMME_DEBUG
-        if (std::fpclassify(para.beta_e) == FP_ZERO) {
-            if (mat.getRows() != grid_info.npoints ||
-                mat.getCols() != grid_info.npoints) {
-                throw std::runtime_error(
-                    "Matrix dimension and grid length mismatch.");
-            }
-        } else {
-            if (mat.getRows() != 2 * grid_info.npoints ||
-                mat.getCols() != 2 * grid_info.npoints) {
-                throw std::runtime_error(
-                    "Matrix dimension and grid length mismatch.");
-            }
+
+        if (mat.getRows() != dim || mat.getCols() != dim) {
+            throw std::runtime_error(
+                "Matrix dimension and grid length mismatch.");
         }
 
 #endif
