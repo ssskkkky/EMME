@@ -3,6 +3,11 @@
 #define lapack_complex_float std::complex<float>
 #define lapack_complex_double std::complex<double>
 
+#ifdef EMME_MKL
+#define MKL_Complex16 lapack_complex_double
+#define lapack_int MKL_INT //This do work
+#endif
+
 // #include <chrono>
 #include <complex>
 #include <iostream>
@@ -14,7 +19,12 @@
 #include "Parameters.h"
 #include "Timer.h"
 #include "aligned-allocator.h"
+#ifdef EMME_MKL
+#include "mkl_lapack.h"
+#else
 #include "lapack.h"
+#endif
+
 
 using value_type = std::complex<double>;
 using matrix_type = Matrix<value_type, util::AlignedAllocator<value_type>>;
@@ -81,9 +91,16 @@ class EigenSolver {
         //               rwork.data(), &info);
 
         // zgesdd is much faster than zgesvd
+	#ifdef EMME_MKL
+	zgesdd(jobz, &dimm, &dimn, A.data(), &dimm, S.data(), U.data(),
+                      &dimm, VT.data(), &dimm, work.data(), &lwork,
+                      rwork.data(), iwork.data(), &info);
+
+	#else
         LAPACK_zgesdd(jobz, &dimm, &dimn, A.data(), &dimm, S.data(), U.data(),
                       &dimm, VT.data(), &dimm, work.data(), &lwork,
                       rwork.data(), iwork.data(), &info);
+#endif       
 
         auto V = VT;
 
@@ -127,9 +144,15 @@ class EigenSolver {
         }
 
         Timer::get_timer().start_timing("linear solver");
+	#ifdef EMME_MKL
+	zsysv(upper, &dim, &dim, eigen_matrix.data(), &dim, ipiv.data(),
+                     eigen_matrix_derivative.data(), &dim, work.data(),
+                     &work_length, &info);     
+	#else
         LAPACK_zsysv(upper, &dim, &dim, eigen_matrix.data(), &dim, ipiv.data(),
                      eigen_matrix_derivative.data(), &dim, work.data(),
                      &work_length, &info);
+	#endif
         Timer::get_timer().pause_timing("linear solver");
         d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
         eigen_value += d_eigen_value;
