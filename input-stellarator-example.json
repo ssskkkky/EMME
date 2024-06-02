@@ -19,6 +19,7 @@
     "integration_iteration_limit":20,
     "_comment on integration_starat_points":"This should be 15 or 31 for now",
     "integration_start_points":31,
+    "arc_coeff":100.0,
     "eta_k":0.0,
     "lh":2,
     "mh":10,

@@ -23,7 +23,8 @@ struct Parameters {
                double integration_precision_input,
                double integration_accuracy_input,
                int integration_iteration_limit_input,
-               int integration_start_points_input);
+               int integration_start_points_input,
+               double arc_coeff_input);
 
     // Member variables
     double q;
@@ -45,6 +46,7 @@ struct Parameters {
     double integration_accuracy;
     int integration_iteration_limit;
     int integration_start_points;
+    double arc_coeff;
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor
@@ -58,19 +60,20 @@ struct Parameters {
 
     std::complex<double> lambda_f_tau(double eta,
                                       double eta_p,
-                                      double tau) const;
+                                      std::complex<double> tau) const;
     std::complex<double> integration_lambda_tau(
         double eta,
         double eta_p,
-        double tau,
+        std::complex<double> tau,
         std::array<std::complex<double>, 5> int_arg) const;
     std::complex<double> integration_lambda_d_tau(
         double eta,
         double eta_p,
-        double tau,
+        std::complex<double> tau,
         std::array<std::complex<double>, 5> int_arg) const;
 
-    std::complex<double> h_f_tau(std::complex<double> omega, double tau) const;
+    std::complex<double> h_f_tau(std::complex<double> omega,
+                                 std::complex<double> tau) const;
 
     std::complex<double> kappa_f_tau(unsigned int m,
                                      double eta,
@@ -86,8 +89,10 @@ struct Parameters {
     // No private member functions needed (assuming this is just a data
     // structure)
 
-    std::array<std::complex<double>, 5>
-    integration_lambda_arg(double eta, double eta_p, double tau) const;
+    std::array<std::complex<double>, 5> integration_lambda_arg(
+        double eta,
+        double eta_p,
+        std::complex<double> tau) const;
 
     /* std::complex<double> lambda_f_tau_term; */
     /* std::complex<double> arg; */
@@ -115,6 +120,7 @@ struct Stellarator : public Parameters {
                 double integration_accuracy_input,
                 int integration_iteration_limit_input,
                 int integration_start_points,
+                double,
                 double eta_k_input,
                 int lh_input,
                 int mh_input,
