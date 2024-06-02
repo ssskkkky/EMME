@@ -257,10 +257,10 @@ template <typename Func, typename Ta, typename Tb, typename Te>
 auto integrate(const Func& func,
                Ta a,
                Tb b,
-               Te tol = 1e-5,
-               Te prec = std::numeric_limits<double>::epsilon(),
-               std::size_t max_subdivide = 15,
-               std::size_t integration_start_points = 15) {
+               Te tol,
+               Te prec,
+               std::size_t max_subdivide,
+               std::size_t integration_start_points) {
     using n_type = typename std::common_type<numeric_t<Ta>, numeric_t<Tb>,
                                              numeric_t<Te>>::type;
     if (integration_start_points == 15) {
@@ -297,6 +297,34 @@ auto integrate(const Func& func,
             return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide,
                                                 n_type{}, tol, prec);
         }
+    }
+    throw std::runtime_error("integration_start_points should be 15 or 31");
+    return std::complex{0.0, 0.0};  // we will never reach here
+}
+
+template <typename Func, typename Te>
+auto integrate(const Func& func,
+               Te tol,
+               Te prec,
+               std::size_t max_subdivide,
+               std::size_t integration_start_points) {
+    using n_type = Te;
+    if (integration_start_points == 15) {
+        using impl = detail::gauss_kronrod<15, n_type>;
+        return impl::gauss_kronrod_adaptive(
+            [&](n_type x) {
+                const n_type c = std::cos(x);
+                return func(std::tan(x)) / (c * c);
+            },
+            0, std::numbers::pi / 2.0, max_subdivide, n_type{}, tol, prec);
+    } else if (integration_start_points == 31) {
+        using impl = detail::gauss_kronrod<31, n_type>;
+        return impl::gauss_kronrod_adaptive(
+            [&](n_type x) {
+                const n_type c = std::cos(x);
+                return func(std::tan(x)) / (c * c);
+            },
+            0, std::numbers::pi / 2.0, max_subdivide, n_type{}, tol, prec);
     }
     throw std::runtime_error("integration_start_points should be 15 or 31");
     return std::complex{0.0, 0.0};  // we will never reach here

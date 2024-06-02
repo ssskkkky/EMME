@@ -171,15 +171,8 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
                h_f_tau(omega, taut);
     };
 
-    // Perform numerical integration
-    double lower_bound = 0.0;
-    double upper_bound = std::numeric_limits<double>::infinity();
-    // 10.0 * M_PI /
-    // vt;  // Assuming your integration limits are 0 and 10*pi/vt
-
     auto result =
-        util::integrate(integrand, lower_bound, upper_bound,
-                        integration_precision, integration_accuracy,
+        util::integrate(integrand, integration_precision, integration_accuracy,
                         integration_iteration_limit, integration_start_points);
 
     // std::complex<double> term1 =

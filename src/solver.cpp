@@ -1,6 +1,3 @@
-#define lapack_complex_float std::complex<float>
-#define lapack_complex_double std::complex<double>
-
 #include "solver.h"
 
 #include <complex>
@@ -11,7 +8,6 @@
 #include "Matrix.h"
 #include "Parameters.h"
 #include "functions.h"
-#include "lapack.h"
 
 // Solve the linear system J * dx = -F using LU decomposition
 
