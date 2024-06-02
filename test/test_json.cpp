@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <numbers>
 #include <sstream>
 
 #include "JsonParser.h"
@@ -102,6 +103,18 @@ int main() {
                       << json_failure_2 << '\n';
             std::cout << e.what() << '\n';
         }
+    }
+    {
+        auto arr = Value::create_typed_array<std::complex<double>>();
+        constexpr std::size_t n = 6;
+        constexpr double dt = std::numbers::pi * 2 / n;
+        for (std::size_t i = 0; i < n; ++i) {
+            arr.as_typed_array<std::complex<double>>().emplace_back(
+                std::cos(i * dt), std::sin(i * dt));
+        }
+        std::cout << "\nPrint root of z^6 - 1 = 0 as an array:\n(dump)\n"
+                  << arr.dump() << "\n(Pretty Print of a clone)\n"
+                  << arr.clone().pretty_print() << '\n';
     }
     return 0;
 }

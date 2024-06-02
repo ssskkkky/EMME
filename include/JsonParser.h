@@ -1,6 +1,7 @@
 #ifndef JSON_PARSER_H
 #define JSON_PARSER_H
 
+#include <complex>
 #include <functional>
 #include <memory>  // unique_ptr
 #include <ostream>
@@ -25,6 +26,8 @@ enum class ValueCategory {
     String,
     Array,
     Object,
+    TypedArrayComplexDouble,
+    TypedArrayComplexFloat
 };
 
 const char* get_value_category_name(ValueCategory);
@@ -38,6 +41,11 @@ struct NumberFloat {
 };
 struct Boolean {
     bool content;
+};
+template <typename T>
+struct TypedArray {
+    using value_type = T;
+    std::vector<T> content;
 };
 
 /**
@@ -196,6 +204,16 @@ struct Value {
     object_container_type& as_object();
     array_container_type& as_array();
 
+    template <typename T>
+    const std::vector<T>& as_typed_array() const {
+        return static_cast<TypedArray<T>*>(ptr.get())->content;
+    }
+
+    template <typename T>
+    std::vector<T>& as_typed_array() {
+        return static_cast<TypedArray<T>*>(ptr.get())->content;
+    }
+
     // queries
 
     bool is_object() const;
@@ -214,6 +232,18 @@ struct Value {
 
     // formatted output
     std::string pretty_print(std::size_t = 0) const;
+
+    // static create_object();
+    // static create_array();
+
+    template <typename T>
+    static Value create_typed_array() {
+        if constexpr (std::is_same_v<T, std::complex<double>>) {
+            return {ValueCategory::TypedArrayComplexDouble, new TypedArray<T>};
+        } else {
+            return {ValueCategory::TypedArrayComplexFloat, new TypedArray<T>};
+        }
+    }
 
    private:
     std::unique_ptr<void, std::function<void(void*)>> ptr;

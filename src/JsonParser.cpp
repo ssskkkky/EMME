@@ -21,6 +21,8 @@ const char* get_value_category_name(ValueCategory val_cat) {
         PROCESS_CAT_NAME(ValueCategory::String)
         PROCESS_CAT_NAME(ValueCategory::Array)
         PROCESS_CAT_NAME(ValueCategory::Object)
+        PROCESS_CAT_NAME(ValueCategory::TypedArrayComplexFloat)
+        PROCESS_CAT_NAME(ValueCategory::TypedArrayComplexDouble)
     }
 #undef PROCESS_CAT_NAME
     return "";  // unreachable
@@ -143,11 +145,22 @@ bool Value::is_boolean() const {
 }
 
 std::size_t Value::size() const {
-    expected_cat(ValueCategory::Object, ValueCategory::Array);
-    if (value_cat == ValueCategory::Object) {
-        return static_cast<Object*>(ptr.get())->content.size();
-    } else {
-        return static_cast<Array*>(ptr.get())->content.size();
+    expected_cat(ValueCategory::Object, ValueCategory::Array,
+                 ValueCategory::TypedArrayComplexFloat,
+                 ValueCategory::TypedArrayComplexDouble);
+    switch (value_cat) {
+        case ValueCategory::Object:
+            return static_cast<Object*>(ptr.get())->content.size();
+        case ValueCategory::Array:
+            return static_cast<Array*>(ptr.get())->content.size();
+        case ValueCategory::TypedArrayComplexFloat:
+            return static_cast<TypedArray<std::complex<float>>*>(ptr.get())
+                ->content.size();
+        case ValueCategory::TypedArrayComplexDouble:
+            return static_cast<TypedArray<std::complex<double>>*>(ptr.get())
+                ->content.size();
+        default:
+            return 0;  // unreachable
     }
 }
 std::size_t Value::empty() const {
@@ -165,6 +178,17 @@ ValueCategory Value::value_category() const {
 
 std::string Value::dump() const {
     std::ostringstream oss;
+    auto dump_typed_array =
+        [this, &oss]<typename T>(const std::vector<T>& typed_array) {
+            oss << '[';
+            for (std::size_t i = 0; i < typed_array.size(); ++i) {
+                const auto& val = typed_array[i];
+                if (i) { oss << ','; }
+                oss << '[' << val.real() << ',' << val.imag() << ']';
+            }
+            oss << ']';
+        };
+
     switch (value_cat) {
         case ValueCategory::Null:
             oss << "null";
@@ -192,13 +216,16 @@ std::string Value::dump() const {
         case ValueCategory::Array:
             oss << '[';
             for (std::size_t i = 0; i < size(); ++i) {
-                if (i) {
-                    oss << ',' << operator[](i).dump();
-                } else {
-                    oss << operator[](i).dump();
-                }
+                if (i) { oss << ','; }
+                oss << operator[](i).dump();
             }
             oss << ']';
+            break;
+        case ValueCategory::TypedArrayComplexFloat:
+            dump_typed_array(as_typed_array<std::complex<float>>());
+            break;
+        case ValueCategory::TypedArrayComplexDouble:
+            dump_typed_array(as_typed_array<std::complex<double>>());
             break;
     }
     return oss.str();
@@ -206,6 +233,25 @@ std::string Value::dump() const {
 
 std::string Value::pretty_print(std::size_t indent) const {
     std::ostringstream oss;
+    auto print_typed_array =
+        [this, &oss, indent]<typename T>(const std::vector<T>& typed_array) {
+            oss << "[\n";
+            for (std::size_t i = 0; i < typed_array.size(); ++i) {
+                const auto& val = typed_array[i];
+                if (i) { oss << ",\n"; }
+                print_space(oss, indent + 4);
+                oss << '[' << val.real() << ", " << val.imag() << ']';
+            }
+            if (typed_array.empty()) {
+                oss.seekp(-1, std::ios_base::cur);
+                oss << ' ';
+            } else {
+                oss << '\n';
+                print_space(oss, indent);
+            }
+            oss << ']';
+        };
+
     switch (value_cat) {
         case ValueCategory::Null:
         case ValueCategory::NumberInt:
@@ -247,6 +293,12 @@ std::string Value::pretty_print(std::size_t indent) const {
             }
             oss << ']';
             break;
+        case ValueCategory::TypedArrayComplexFloat:
+            print_typed_array(as_typed_array<std::complex<float>>());
+            break;
+        case ValueCategory::TypedArrayComplexDouble:
+            print_typed_array(as_typed_array<std::complex<double>>());
+            break;
     }
     return oss.str();
 }
@@ -279,6 +331,12 @@ Value Value::clone() const {
             }
             return {value_cat, obj};
         }
+        case ValueCategory::TypedArrayComplexFloat:
+            return {value_cat, new TypedArray<std::complex<float>>{
+                                   as_typed_array<std::complex<float>>()}};
+        case ValueCategory::TypedArrayComplexDouble:
+            return {value_cat, new TypedArray<std::complex<double>>{
+                                   as_typed_array<std::complex<double>>()}};
         case ValueCategory::Null:
             break;
     }
