@@ -29,10 +29,10 @@ int main() {
                                  ? std::ios::app
                                  : std::ios::trunc);
     double tol = input["iteration_precision"];
-    std::complex<double> omega_initial_guess(
-        input["initial_guess"][0],
-        input["initial_guess"][1]);  // initial_guess is not designed for
-                                     // scanning. reserve stack space
+    std::complex<double> omega_initial_guess(input["initial_guess"][0],
+                                             input["initial_guess"][1]);
+
+    // record omega_head as the initial guess for other side scanning.
     auto omega_head = omega_initial_guess;
 
     alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
