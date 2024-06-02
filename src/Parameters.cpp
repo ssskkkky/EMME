@@ -4,7 +4,7 @@
 #include <tuple>
 
 #include "functions.h"
-
+using namespace std::literals;
 Parameters::Parameters(double q_input,
                        double shat_input,
                        double tau_input,
@@ -22,7 +22,8 @@ Parameters::Parameters(double q_input,
                        double integration_precision_input,
                        double integration_accuracy_input,
                        int integration_iteration_limit_input,
-                       int integration_start_points_input)
+                       int integration_start_points_input,
+                       double arc_coeff_input)
     : q(q_input),
       shat(shat_input),
       tau(tau_input),
@@ -43,6 +44,7 @@ Parameters::Parameters(double q_input,
       integration_accuracy(integration_accuracy_input),
       integration_iteration_limit(integration_iteration_limit_input),
       integration_start_points(integration_start_points_input),
+      arc_coeff(arc_coeff_input),
       omega_s_i(-(std::sqrt(b_theta) * vt) / (epsilon_n * R)),
       omega_s_e(-tau * omega_s_i),
       omega_d_bar(2.0 * epsilon_n * omega_s_i) {}
@@ -75,13 +77,15 @@ double Parameters::bi(double eta) const {
 }
 std::complex<double> Parameters::lambda_f_tau(double eta,
                                               double eta_p,
-                                              double tau) const {
+                                              std::complex<double> tau) const {
     return 1.0 + 0.5 * std::complex<double>(0.0, 1.0) * (tau * vt) /
                      (q * R * (eta - eta_p)) * beta_1(eta, eta_p);
 }
 
-std::array<std::complex<double>, 5>
-Parameters::integration_lambda_arg(double eta, double eta_p, double tau) const {
+std::array<std::complex<double>, 5> Parameters::integration_lambda_arg(
+    double eta,
+    double eta_p,
+    std::complex<double> tau) const {
     std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
     std::complex<double> arg =
         std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
@@ -98,7 +102,7 @@ Parameters::integration_lambda_arg(double eta, double eta_p, double tau) const {
 std::complex<double> Parameters::integration_lambda_tau(
     double eta,
     double eta_p,
-    double tau,
+    std::complex<double> tau,
     std::array<std::complex<double>, 5> int_arg) const {
     auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
 
@@ -108,7 +112,7 @@ std::complex<double> Parameters::integration_lambda_tau(
 std::complex<double> Parameters::integration_lambda_d_tau(
     double eta,
     double eta_p,
-    double tau,
+    std::complex<double> tau,
     std::array<std::complex<double>, 5> int_arg) const {
     auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
     // std::complex<double> arg =
@@ -131,7 +135,7 @@ std::complex<double> Parameters::integration_lambda_d_tau(
 }
 
 std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
-                                         double tau) const {
+                                         std::complex<double> tau) const {
     return exp(std::complex<double>(0.0, 1.0) * tau * omega);
 }
 
@@ -142,9 +146,14 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
 
 {
     // Define the integrand function
-    auto integrand = [&](double taut) {
+    auto integrand = [&](double taut_transformed) {
         // std::complex<double> arg =
         //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_taut(eta, eta_p, taut);
+        auto omi = -std::copysign(1, omega.real());
+        auto taut = arc_coeff * std::atan(taut_transformed) -
+                    1.i * omi * taut_transformed;
+        auto jacob =
+            arc_coeff / (1 + taut_transformed * taut_transformed) - 1.i * omi;
 
         auto passer = integration_lambda_arg(eta, eta_p, taut);
 
@@ -165,10 +174,9 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
                std::exp(-0.5 *
                         std::pow((q * R * (eta - eta_p)) / (vt * taut), 2)) /
                taut * (term1 + term2) *
-               std::exp(std::complex<double>(0, 1.0) *
-                        (beta_1(eta, eta_p) / 2.0 *
-                         (((-q * R * (eta - eta_p)) / (vt * taut))))) *
-               h_f_tau(omega, taut);
+               std::exp(1.i * (beta_1(eta, eta_p) / 2.0 *
+                               (((-q * R * (eta - eta_p)) / (vt * taut))))) *
+               h_f_tau(omega, taut) * jacob;
     };
 
     auto result =
@@ -236,6 +244,7 @@ Stellarator::Stellarator(double q_input,
                          double integration_accuracy_input,
                          int integration_iteration_limit_input,
                          int integration_start_points_input,
+                         double arc_coeff_input,
                          double eta_k_input,
                          int lh_input,
                          int mh_input,
@@ -259,7 +268,8 @@ Stellarator::Stellarator(double q_input,
                  integration_precision_input,
                  integration_accuracy_input,
                  integration_iteration_limit_input,
-                 integration_start_points_input),
+                 integration_start_points_input,
+                 arc_coeff_input),
       eta_k(eta_k_input),
       lh(lh_input),
       mh(mh_input),
