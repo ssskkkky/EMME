@@ -347,6 +347,13 @@ void Value::print_space(std::ostream& os, std::size_t indent) {
     for (std::size_t i = 0; i < indent; ++i) { os << ' '; }
 }
 
+Value Value::create_object() {
+    return {ValueCategory::Object, new Object{}};
+}
+Value Value::create_array() {
+    return {ValueCategory::Array, new Array{}};
+}
+
 JsonLexer::JsonLexer(std::istream& is, std::string file_name)
     : is_(is), filename(file_name), row(1), col(1) {}
 
@@ -625,9 +632,9 @@ Value parse(std::istream& is) {
     return JsonParser{is}.parse();
 }
 
-Value parse(const char* str) {
+Value parse(std::string str) {
     std::stringstream ss;
-    ss << str;
+    ss.str(str);
     return parse(ss);
 }
 

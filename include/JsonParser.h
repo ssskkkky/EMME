@@ -233,8 +233,8 @@ struct Value {
     // formatted output
     std::string pretty_print(std::size_t = 0) const;
 
-    // static create_object();
-    // static create_array();
+    static Value create_object();
+    static Value create_array();
 
     template <typename T>
     static Value create_typed_array() {
@@ -336,7 +336,7 @@ struct JsonParser {
     void report_syntax_error(const JsonLexer::Token& = {});
 };
 
-Value parse(const char*);
+Value parse(std::string);
 Value parse(std::istream&);
 Value parse_file(std::string);
 

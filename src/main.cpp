@@ -14,6 +14,8 @@
 #include "singularity_handler.h"
 #include "solver.h"
 
+using namespace util::json;
+
 int main() {
     Timer::get_timer().start_timing("All");
     using namespace std::string_literals;
