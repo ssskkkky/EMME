@@ -1,6 +1,8 @@
 # Define the compiler
 
+ifndef CXX
 CXX = g++
+endif
 
 LAPACK_INCLUDE = $(shell pkg-config lapack --cflags)
 BLASLAPCK_LIBS = $(shell pkg-config lapack --libs) $(shell pkg-config blas --libs)
@@ -22,7 +24,11 @@ else
 CXXFLAGS +=$(OPT_FLAGS)
 endif
 
-LD_FLAGS = $(BLASLAPCK_LIBS) -lgfortran
+LD_FLAGS = $(BLASLAPCK_LIBS)
+
+ifeq ($(CXX), g++)
+LD_FLAGS += -lgfortran
+endif
 
 # Define the main executable name
 TARGET = emme
