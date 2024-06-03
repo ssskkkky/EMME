@@ -33,7 +33,8 @@ std::string get_date_string() {
 }
 
 int main() {
-    Timer::get_timer().start_timing("All");
+    auto& timer = Timer::get_timer();
+    timer.start_timing("All");
     using namespace std::string_literals;
 
     std::string filename = "input.json";
@@ -79,25 +80,24 @@ int main() {
     result["result"] = Value::create_array();
     auto& result_array = result["result"].as_array();
 
-    Timer::get_timer().start_timing("initial");
+    timer.start_timing("initial");
     auto head = scan_opt["head"];
     auto tail_array = scan_opt["tail"].as_array();
     for (unsigned int ii = 0; ii < 2; ii++) {
         auto tail = tail_array[ii];
         if (ii > 0) {
             head = scan_opt["head"] +
-                   std::copysign(scan_opt["step"].as_number<double>(),
-                                 (tail - scan_opt["head"]));
+                   std::copysign(scan_opt["step"], (tail - scan_opt["head"]));
             omega_initial_guess = omega_head;
         }
-        for (input[scan_key] = head.as_number<double>();
-             std::abs(input[scan_key].as_number<double>() - scan_opt["head"]) <=
+        for (input[scan_key] = head;
+             std::abs(input[scan_key] - scan_opt["head"]) <=
              (std::abs(tail - scan_opt["head"]) +
               // This stupid but worked 0.01 term is for dealing with
               // the float error
-              0.01 * std::abs(scan_opt["step"].as_number<double>()));
-             input[scan_key] += std::copysign(
-                 scan_opt["step"].as_number<double>(), (tail - head))) {
+              0.01 * std::abs(scan_opt["step"]));
+             input[scan_key] +=
+             std::copysign(scan_opt["step"], (tail - head))) {
             Parameters* para_ptr = nullptr;
             // Parameters and Stellarator are both trivially
             // destructible, no need to bother calling their
@@ -142,12 +142,12 @@ int main() {
             auto eigen_solver = EigenSolver<Matrix<std::complex<double>>>(
                 para, omega_initial_guess, coeff_matrix, grid_info);
             std::cout << scan_key << ":" << input[scan_key] << std::endl;
-            Timer::get_timer().pause_timing("initial");
+            timer.pause_timing("initial");
 
             for (int j = 0; j <= para.iteration_step_limit; j++) {
-                Timer::get_timer().start_timing("newtonTracSecantIteration");
+                timer.start_timing("newtonTracSecantIteration");
                 eigen_solver.newtonTraceSecantIteration();
-                Timer::get_timer().pause_timing("newtonTracSecantIteration");
+                timer.pause_timing("newtonTracSecantIteration");
 
                 std::cout << eigen_solver.eigen_value << std::endl;
                 if (std::abs(eigen_solver.d_eigen_value) <
@@ -159,9 +159,9 @@ int main() {
             std::cout << "Eigenvalue: " << eigen_solver.eigen_value.real()
                       << " " << eigen_solver.eigen_value.imag() << std::endl;
 
-            Timer::get_timer().start_timing("SVD");
+            timer.start_timing("SVD");
             auto null_space = eigen_solver.nullSpace();
-            Timer::get_timer().pause_timing("SVD");
+            timer.pause_timing("SVD");
 
             // store eigenvalue and eigenvector to result
             auto result_unit = Value::create_object();
@@ -179,14 +179,14 @@ int main() {
             }
         }
     }
-    Timer::get_timer().start_timing("Output");
+    timer.start_timing("Output");
     std::ofstream output(output_filename);
     output << result.dump();
-    Timer::get_timer().pause_timing("Output");
+    timer.pause_timing("Output");
 
-    Timer::get_timer().pause_timing("All");
-    Timer::get_timer().print();
-    std::cout << std::endl;
+    timer.pause_timing("All");
+    timer.print();
+    std::cout << '\n';
 
     return 0;
 }
