@@ -11,6 +11,9 @@ DEBUG_FLAGS = -g -DEMME_DEBUG
 OPT_FLAGS = -O3
 CXXFLAGS = -Wall -std=c++20 -DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD -I./include
 
+hash = $(subst ",\", $(shell ./build_info.sh hash))
+date = $(subst ",\", $(shell ./build_info.sh time))
+
 VPATH = src:include
 
 ifdef DEBUG
@@ -42,9 +45,9 @@ $(TARGET): $(OBJS)
 	$(CXX) -o $@ $(OBJS) $(LD_FLAGS)
 
 main.o: main.cpp $(header_in_main)
-	$(CXX) $(CXXFLAGS) -c -o $@ $< 
+	$(CXX) $(CXXFLAGS) -c -o $@ $< -D$(hash) -D$(date)
 $(filter-out main.o, $(OBJS)): %.o: %.cpp %.h
-	$(CXX) $(CXXFLAGS) $(LAPACK_INCLUDE) -c -o $@ $< 
+	$(CXX) $(CXXFLAGS) $(LAPACK_INCLUDE) -c -o $@ $<
 
 # Clean the project (removes the executable)
 clean:

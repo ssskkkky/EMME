@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <numbers>
 #include <sstream>
 
 #include "JsonParser.h"
@@ -62,7 +63,8 @@ int main() {
         }
         std::cout << '\n';
 
-        std::cout << "Unformatted output: " << obj.dump() << "\n\n";
+        auto compact_form = obj.dump();
+        std::cout << "Unformatted output: " << compact_form << "\n\n";
         std::cout << "Formatted output:\n" << obj.pretty_print() << "\n\n";
 
         {
@@ -102,6 +104,30 @@ int main() {
                       << json_failure_2 << '\n';
             std::cout << e.what() << '\n';
         }
+    }
+    {
+        // test typed array
+        auto arr = Value::create_typed_array<std::complex<double>>();
+        constexpr std::size_t n = 6;
+        constexpr double dt = std::numbers::pi * 2 / n;
+        for (std::size_t i = 0; i < n; ++i) {
+            arr.as_typed_array<std::complex<double>>().emplace_back(
+                std::cos(i * dt), std::sin(i * dt));
+        }
+        std::cout << "\nPrint root of z^6 - 1 = 0 as an array:\n(dump)\n"
+                  << arr.dump() << "\n(Pretty Print of a clone)\n"
+                  << arr.clone().pretty_print() << '\n';
+    }
+    {
+        // test object and array creation
+        auto obj = Value::create_object();
+        auto arr = Value::create_array();
+
+        arr.as_array().push_back(Value::create_object());
+        obj["arr"] = std::move(arr);
+        obj["obj"] = Value::create_object();
+
+        std::cout << '\n' << obj.pretty_print() << '\n';
     }
     return 0;
 }

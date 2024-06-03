@@ -20,6 +20,11 @@ find_package(BLAS REQUIRED)
 # Add executable target
 add_executable(emme ${SOURCE_FILES})
 
+if(UNIX AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles"))
+    target_compile_definitions(emme PRIVATE [=[`${CMAKE_SOURCE_DIR}/build_info.sh hash`]=])
+    target_compile_definitions(emme PRIVATE [=[`${CMAKE_SOURCE_DIR}/build_info.sh time`]=])
+endif()
+
 target_include_directories(emme PUBLIC ${INCLUDE_DIR})
 
 
