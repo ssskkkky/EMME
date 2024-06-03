@@ -19,17 +19,12 @@ using namespace util::json;
 int main() {
     Timer::get_timer().start_timing("All");
     using namespace std::string_literals;
+
     std::string filename = "input.json";
+    std::string output_filename = "output.json";
+
     auto input_all = util::json::parse_file(filename);
-    auto input = util::json::parse_file(filename);
-    std::ofstream outfile("emme_eigen_vector.csv",
-                          input["output"].as_string() == std::string{"append"}
-                              ? std::ios::app
-                              : std::ios::trunc);
-    std::ofstream eigenvalue("emme_eigen_value.csv",
-                             input["output"].as_string() == "append"
-                                 ? std::ios::app
-                                 : std::ios::trunc);
+    auto input = input_all.clone();
     double tol = input["iteration_precision"];
     std::complex<double> omega_initial_guess(input["initial_guess"][0],
                                              input["initial_guess"][1]);
@@ -42,6 +37,7 @@ int main() {
     // create output object
     auto result = Value::create_object();
     result["input"] = input_all.clone();
+
     // find out which parameter is setup for scan
     std::string scan_key{};
     Value scan_opt;
@@ -51,6 +47,10 @@ int main() {
             scan_opt = val.clone();
         }
     }
+
+    result["scan_parameter"] = scan_key;
+    result["result"] = Value::create_array();
+    auto& result_array = result["result"].as_array();
 
     Timer::get_timer().start_timing("initial");
     auto head = scan_opt["head"];
@@ -131,26 +131,32 @@ int main() {
 
             std::cout << "Eigenvalue: " << eigen_solver.eigen_value.real()
                       << " " << eigen_solver.eigen_value.imag() << std::endl;
-            eigenvalue << eigen_solver.eigen_value.real() << " "
-                       << eigen_solver.eigen_value.imag() << std::endl;
+
             Timer::get_timer().start_timing("SVD");
             auto null_space = eigen_solver.nullSpace();
             Timer::get_timer().pause_timing("SVD");
-            if (!outfile.is_open()) {
-                // Handle error
-                return 1;
-            }
-            outfile << null_space << std::endl;
-            flush(eigenvalue);
-            flush(outfile);
+
+            // store eigenvalue and eigenvector to result
+            auto result_unit = Value::create_object();
+            result_unit["scan_value"] = input[scan_key];
+            auto& eva = result_unit["eigenvalue"] = Value::create_array(2);
+            eva[0] = eigen_solver.eigen_value.real();
+            eva[1] = eigen_solver.eigen_value.imag();
+            result_unit["eigenvector"] = Value::create_typed_array(null_space);
+
+            result_array.push_back(std::move(result_unit));
+
             omega_initial_guess = eigen_solver.eigen_value;
             if (ii == 0 && input[scan_key] == head) {
                 omega_head = omega_initial_guess;
             }
         }
     }
+    Timer::get_timer().start_timing("Output");
+    std::ofstream output(output_filename);
+    output << result.dump();
+    Timer::get_timer().pause_timing("Output");
 
-    outfile.close();
     Timer::get_timer().pause_timing("All");
     Timer::get_timer().print();
     std::cout << std::endl;

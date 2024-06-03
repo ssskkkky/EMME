@@ -350,8 +350,8 @@ void Value::print_space(std::ostream& os, std::size_t indent) {
 Value Value::create_object() {
     return {ValueCategory::Object, new Object{}};
 }
-Value Value::create_array() {
-    return {ValueCategory::Array, new Array{}};
+Value Value::create_array(std::size_t n) {
+    return {ValueCategory::Array, new Array{array_container_type{n}}};
 }
 
 JsonLexer::JsonLexer(std::istream& is, std::string file_name)

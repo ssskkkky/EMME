@@ -42,6 +42,9 @@ struct NumberFloat {
 struct Boolean {
     bool content;
 };
+struct String {
+    std::string content;
+};
 template <typename T>
 struct TypedArray {
     using value_type = T;
@@ -164,7 +167,7 @@ struct Value {
 #undef define_compond_assignment_operator
 
     template <typename T>
-    void operator=(T val) requires std::convertible_to<T, double> {
+    decltype(auto) operator=(T val) requires std::convertible_to<T, double> {
         if (value_cat == ValueCategory::NumberInt) {
             if constexpr (std::is_integral_v<std::remove_reference_t<T>>) {
                 static_cast<NumberInt*>(ptr.get())->content = val;
@@ -180,6 +183,18 @@ struct Value {
                 *this = Value{ValueCategory::NumberFloat, new NumberFloat{val}};
             }
         }
+        return *this;
+    }
+
+    template <typename T>
+    decltype(auto) operator=(
+        T val) requires std::convertible_to<T, std::string> {
+        if (value_cat == ValueCategory::String) {
+            static_cast<String*>(ptr.get())->content = val;
+        } else {
+            *this = Value{ValueCategory::String, new String{val}};
+        }
+        return *this;
     }
 
     decltype(auto) operator[](std::integral auto idx) const {
@@ -234,14 +249,25 @@ struct Value {
     std::string pretty_print(std::size_t = 0) const;
 
     static Value create_object();
-    static Value create_array();
+    static Value create_array(std::size_t n = 0);
 
     template <typename T>
     static Value create_typed_array() {
         if constexpr (std::is_same_v<T, std::complex<double>>) {
             return {ValueCategory::TypedArrayComplexDouble, new TypedArray<T>};
-        } else {
+        } else if constexpr (std::is_same_v<T, std::complex<float>>) {
             return {ValueCategory::TypedArrayComplexFloat, new TypedArray<T>};
+        }
+    }
+
+    template <typename T>
+    static Value create_typed_array(std::vector<T> vec) {
+        if constexpr (std::is_same_v<T, std::complex<double>>) {
+            return {ValueCategory::TypedArrayComplexDouble,
+                    new TypedArray<T>(vec)};
+        } else if constexpr (std::is_same_v<T, std::complex<float>>) {
+            return {ValueCategory::TypedArrayComplexFloat,
+                    new TypedArray<T>(vec)};
         }
     }
 
@@ -257,9 +283,6 @@ struct Object {
 };
 struct Array {
     Value::array_container_type content;
-};
-struct String {
-    std::string content;
 };
 
 struct JsonLexer {
