@@ -264,10 +264,10 @@ struct Value {
     static Value create_typed_array(std::vector<T> vec) {
         if constexpr (std::is_same_v<T, std::complex<double>>) {
             return {ValueCategory::TypedArrayComplexDouble,
-                    new TypedArray<T>(vec)};
+                    new TypedArray<T>{vec}};
         } else if constexpr (std::is_same_v<T, std::complex<float>>) {
             return {ValueCategory::TypedArrayComplexFloat,
-                    new TypedArray<T>(vec)};
+                    new TypedArray<T>{vec}};
         }
     }
 

@@ -25,6 +25,10 @@ if(UNIX AND (CMAKE_GENERATOR STREQUAL "Unix Makefiles"))
     target_compile_definitions(emme PRIVATE [=[`${CMAKE_SOURCE_DIR}/build_info.sh time`]=])
 endif()
 
+if(EMME_MKL)
+    target_compile_definitions(emme PRIVATE EMME_MKL)
+endif()
+
 target_include_directories(emme PUBLIC ${INCLUDE_DIR})
 
 

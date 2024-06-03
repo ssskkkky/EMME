@@ -179,7 +179,7 @@ ValueCategory Value::value_category() const {
 std::string Value::dump() const {
     std::ostringstream oss;
     auto dump_typed_array =
-        [this, &oss]<typename T>(const std::vector<T>& typed_array) {
+        [&oss]<typename T>(const std::vector<T>& typed_array) {
             oss << '[';
             for (std::size_t i = 0; i < typed_array.size(); ++i) {
                 const auto& val = typed_array[i];
@@ -234,7 +234,7 @@ std::string Value::dump() const {
 std::string Value::pretty_print(std::size_t indent) const {
     std::ostringstream oss;
     auto print_typed_array =
-        [this, &oss, indent]<typename T>(const std::vector<T>& typed_array) {
+        [&oss, indent]<typename T>(const std::vector<T>& typed_array) {
             oss << "[\n";
             for (std::size_t i = 0; i < typed_array.size(); ++i) {
                 const auto& val = typed_array[i];
