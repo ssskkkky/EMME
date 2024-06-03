@@ -1,6 +1,8 @@
 #include <complex>
 #include <cstddef>
+#include <ctime>
 #include <fstream>
+#include <iomanip>
 #include <iostream>
 #include <utility>
 
@@ -15,6 +17,20 @@
 #include "solver.h"
 
 using namespace util::json;
+
+std::string get_date_string() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm = *std::localtime(&t);
+
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%FT%T%z");
+    auto time_string = ss.str();
+    char c = time_string[time_string.size() - 5];
+    if (c == '+' || c == '-') {
+        time_string.insert(time_string.size() - 2, ":");
+    }
+    return time_string;
+}
 
 int main() {
     Timer::get_timer().start_timing("All");
@@ -37,6 +53,17 @@ int main() {
     // create output object
     auto result = Value::create_object();
     result["input"] = input_all.clone();
+
+    // build info from preprocessor invocation command arguments, works when
+    // using GNU Makefiles only
+
+#ifdef EMME_COMMIT_HASH
+    result["git_commit_hash"] = EMME_COMMIT_HASH;
+#endif
+#ifdef EMME_BUILD_DATE
+    result["build_time"] = EMME_BUILD_DATE;
+#endif
+    result["run_time"] = get_date_string();
 
     // find out which parameter is setup for scan
     std::string scan_key{};
