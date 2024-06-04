@@ -26,6 +26,10 @@ class Timer {
 
    private:
     Timer();
+    Timer(const Timer&) = delete;
+    Timer(Timer&&) = delete;
+    decltype(auto) operator=(const Timer&) = delete;
+    decltype(auto) operator=(Timer&&) = delete;
 };
 
 #endif
