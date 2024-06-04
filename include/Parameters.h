@@ -144,6 +144,30 @@ struct Stellarator : public Parameters {
     void parameterInit() override;
 };
 
+struct Cylinder : public Parameters {
+    Cylinder(double q_input,
+             double shat_input,
+             double tau_input,
+             double epsilon_n_input,
+             double eta_i_input,
+             double eta_e_input,
+             double b_theta_input,
+             double beta_e_input,
+             double R_input,
+             double vt_input,
+             double length_input,
+             double theta_input,
+             int npoints_input,
+             int iteration_step_limit_input,
+             double integration_precision_input,
+             double integration_accuracy_input,
+             int integration_iteration_limit_input,
+             int integration_start_points,
+             double arc_coeff_input);
+
+    double g_integration_f(double eta) const override;
+};
+
 static_assert(std::is_trivially_destructible_v<Parameters>,
               "Paramters should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<Stellarator>,
