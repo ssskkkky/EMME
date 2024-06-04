@@ -105,10 +105,10 @@ int main() {
             if (!std::string{"tokamak"}.compare(input["conf"])) {
                 para_ptr = new (buffer) Parameters(
                     input["q"], input["shat"], input["tau"], input["epsilon_n"],
-                    input["eta_i"], input["eta_e"], input["b_theta"],
-                    input["beta_e"], input["R"], input["vt"], input["length"],
-                    input["theta"], input["npoints"],
-                    input["iteration_step_limit"],
+                    input["eta_i"], input["eta_e"],
+                    input["k_rho"] * input["k_rho"], input["beta_e"],
+                    input["R"], input["vt"], input["length"], input["theta"],
+                    input["npoints"], input["iteration_step_limit"],
                     input["integration_precision"],
                     input["integration_accuracy"],
                     input["integration_iteration_limit"],
@@ -116,10 +116,10 @@ int main() {
             } else if (!std::string{"stellarator"}.compare(input["conf"])) {
                 para_ptr = new (buffer) Stellarator(
                     input["q"], input["shat"], input["tau"], input["epsilon_n"],
-                    input["eta_i"], input["eta_e"], input["b_theta"],
-                    input["beta_e"], input["R"], input["vt"], input["length"],
-                    input["theta"], input["npoints"],
-                    input["iteration_step_limit"],
+                    input["eta_i"], input["eta_e"],
+                    input["k_rho"] * input["k_rho"], input["beta_e"],
+                    input["R"], input["vt"], input["length"], input["theta"],
+                    input["npoints"], input["iteration_step_limit"],
                     input["integration_precision"],
                     input["integration_accuracy"],
                     input["integration_iteration_limit"],
