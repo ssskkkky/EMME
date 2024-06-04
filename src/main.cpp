@@ -1,8 +1,6 @@
 #include <complex>
 #include <cstddef>
-#include <ctime>
 #include <fstream>
-#include <iomanip>
 #include <iostream>
 #include <utility>
 
@@ -10,27 +8,12 @@
 #include "JsonParser.h"
 #include "Matrix.h"
 #include "Parameters.h"
-// #include "fenv.h" //this is for check inf or nan
 #include "Timer.h"
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
 
 using namespace util::json;
-
-std::string get_date_string() {
-    std::time_t t = std::time(nullptr);
-    std::tm tm = *std::localtime(&t);
-
-    std::stringstream ss;
-    ss << std::put_time(&tm, "%FT%T%z");
-    auto time_string = ss.str();
-    char c = time_string[time_string.size() - 5];
-    if (c == '+' || c == '-') {
-        time_string.insert(time_string.size() - 2, ":");
-    }
-    return time_string;
-}
 
 int main() {
     auto& timer = Timer::get_timer();
@@ -64,7 +47,7 @@ int main() {
 #ifdef EMME_BUILD_DATE
     result["build_time"] = EMME_BUILD_DATE;
 #endif
-    result["run_time"] = get_date_string();
+    result["run_time"] = util::get_date_string();
 
     // find out which parameter is setup for scan
     std::string scan_key{};

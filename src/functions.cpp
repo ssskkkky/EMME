@@ -1,25 +1,22 @@
-#include <string>
-
 #include "functions.h"
-// Function to read contents of a file line by line
-// std::string readInputFromFile(const std::string& filename)
 
-// {
-//     std::ifstream input_file(filename);
-//     std::string file_contents;
+#include <ctime>
+#include <iomanip>
 
-//     // Check if the file was opened successfully
-//     if (input_file.is_open()) {
-//         // Read the file contents line by line
-//         std::string line;
-//         while (std::getline(input_file, line)) {
-//             file_contents +=
-//                 line + '\n';  // Add newline character after each line
-//         }
-//         input_file.close();
-//     } else {
-//         std::cerr << "Error: Could not open file " << filename << std::endl;
-//     }
+namespace util {
 
-//     return file_contents;
-// }
+std::string get_date_string() {
+    std::time_t t = std::time(nullptr);
+    std::tm tm = *std::localtime(&t);
+
+    std::stringstream ss;
+    ss << std::put_time(&tm, "%FT%T%z");
+    auto time_string = ss.str();
+    char c = time_string[time_string.size() - 5];
+    if (c == '+' || c == '-') {
+        time_string.insert(time_string.size() - 2, ":");
+    }
+    return time_string;
+}
+
+}  // namespace util
