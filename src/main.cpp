@@ -73,27 +73,33 @@ auto solve_once(auto& input,
         para, omega_initial_guess, coeff_matrix, grid_info);
     timer.pause_timing("initial");
 
+    std::vector<std::complex<double>> conv_path;
+    conv_path.push_back(omega_initial_guess);
     for (int j = 0; j <= para.iteration_step_limit; j++) {
         timer.start_timing("newtonTracSecantIteration");
         eigen_solver.newtonTraceSecantIteration();
         timer.pause_timing("newtonTracSecantIteration");
 
-        std::cout << eigen_solver.eigen_value << std::endl;
+        std::cout << eigen_solver.eigen_value << '\n';
+        conv_path.push_back(eigen_solver.eigen_value);
         if (std::abs(eigen_solver.d_eigen_value) <
             std::abs(tol * eigen_solver.eigen_value)) {
             break;
         }
     }
 
-    std::cout << "Eigenvalue: " << eigen_solver.eigen_value.real() << " "
-              << eigen_solver.eigen_value.imag() << '\n';
+    std::cout << "Eigenvalue: " << eigen_solver.eigen_value << '\n';
+
+    // initialize output array
+    auto result_unit = Value::create_object();
 
     // store eigenvalue and eigenvector to result
-    auto result_unit = Value::create_object();
     result_unit["scan_value"] = input[scan_key];
     auto& eva = result_unit["eigenvalue"] = Value::create_array(2);
     eva[0] = eigen_solver.eigen_value.real();
     eva[1] = eigen_solver.eigen_value.imag();
+    result_unit["convergence_path"] =
+        Value::create_typed_array(std::move(conv_path));
 
     timer.start_timing("SVD");
     result_unit["eigenvector"] =
