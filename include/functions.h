@@ -1,4 +1,4 @@
-#ifndef FUNCTIONS_H  // Replace MATRIX_H with your unique guard macro name
+#ifndef FUNCTIONS_H
 #define FUNCTIONS_H
 
 #include <array>
@@ -371,6 +371,8 @@ auto bessel_i_helper(const T& z) {
     mu = std::exp(std::real(z) < 0 ? z : -z) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
+
+std::string get_date_string();
 
 }  // namespace util
 

@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
 class Timer {
    public:
@@ -17,15 +18,19 @@ class Timer {
 
     void print();
 
-    std::unordered_map<
-        std::string,
-        std::pair<decltype(std::chrono::high_resolution_clock::now() -
-                           std::chrono::high_resolution_clock::now()),
-                  decltype(std::chrono::high_resolution_clock::now())>>
-        time_consuming;
-
    private:
     Timer();
+    Timer(const Timer&) = delete;
+    Timer(Timer&&) = delete;
+    decltype(auto) operator=(const Timer&) = delete;
+    decltype(auto) operator=(Timer&&) = delete;
+
+    std::vector<std::string> entries;
+    std::unordered_map<
+        std::string,
+        std::pair<std::chrono::high_resolution_clock::duration,
+                  std::chrono::high_resolution_clock::time_point>>
+        time_consuming;
 };
 
 #endif
