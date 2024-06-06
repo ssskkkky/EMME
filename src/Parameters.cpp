@@ -492,5 +492,5 @@ Cylinder::Cylinder(double q_input,
                  arc_coeff_input) {}
 
 double Cylinder::g_integration_f(double eta) const {
-    return eta;
+    return shat * eta;
 }
