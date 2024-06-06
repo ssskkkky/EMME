@@ -1,30 +1,16 @@
 #ifndef PARAMETERS_H
 #define PARAMETERS_H
+
 #include <array>
 #include <complex>
+
+#include "JsonParser.h"
+
 // Structure to hold simulation parameters
 struct Parameters {
    public:
     // Constructor
-    Parameters(double q_input,
-               double shat_input,
-               double tau_input,
-               double epsilon_n_input,
-               double eta_i_input,
-               double eta_e_input,
-               double b_theta_input,
-               double beta_e_input,
-               double R_input,
-               double vt_input,
-               double length_input,
-               double theta_input,
-               int npoints_input,
-               int iteration_step_limit_input,
-               double integration_precision_input,
-               double integration_accuracy_input,
-               int integration_iteration_limit_input,
-               int integration_start_points_input,
-               double arc_coeff_input);
+    Parameters(const util::json::Value&);
 
     // Member variables
     double q;
@@ -37,7 +23,6 @@ struct Parameters {
     double beta_e;
     double R;
     double vt;
-    double alpha;
     double length;
     double theta;
     int npoints;
@@ -47,6 +32,7 @@ struct Parameters {
     int integration_iteration_limit;
     int integration_start_points;
     double arc_coeff;
+    double alpha;
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor
@@ -102,31 +88,7 @@ struct Parameters {
 };
 
 struct Stellarator : public Parameters {
-    Stellarator(double q_input,
-                double shat_input,
-                double tau_input,
-                double epsilon_n_input,
-                double eta_i_input,
-                double eta_e_input,
-                double b_theta_input,
-                double beta_e_input,
-                double R_input,
-                double vt_input,
-                double length_input,
-                double theta_input,
-                int npoints_input,
-                int iteration_step_limit_input,
-                double integration_precision_input,
-                double integration_accuracy_input,
-                int integration_iteration_limit_input,
-                int integration_start_points,
-                double,
-                double eta_k_input,
-                int lh_input,
-                int mh_input,
-                double epsilon_h_t_input,
-                double alpha_0_input,
-                double r_over_R_input);
+    Stellarator(const util::json::Value&);
 
     double eta_k;
     int lh;
@@ -145,25 +107,7 @@ struct Stellarator : public Parameters {
 };
 
 struct Cylinder : public Parameters {
-    Cylinder(double q_input,
-             double shat_input,
-             double tau_input,
-             double epsilon_n_input,
-             double eta_i_input,
-             double eta_e_input,
-             double b_theta_input,
-             double beta_e_input,
-             double R_input,
-             double vt_input,
-             double length_input,
-             double theta_input,
-             int npoints_input,
-             int iteration_step_limit_input,
-             double integration_precision_input,
-             double integration_accuracy_input,
-             int integration_iteration_limit_input,
-             int integration_start_points,
-             double arc_coeff_input);
+    using Parameters::Parameters;
 
     double g_integration_f(double eta) const override;
 };

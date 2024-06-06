@@ -28,35 +28,13 @@ auto solve_once(auto& input,
     // Parameters and Stellarator are both trivially
     // destructible, no need to bother calling their
     // destructors.
+    // TODO: use factory method pattern
     if (!std::string{"tokamak"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Parameters(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"]);
+        para_ptr = new (buffer) Parameters(input);
     } else if (!std::string{"stellarator"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Stellarator(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"],
-            input["eta_k"], input["lh"], input["mh"], input["epsilon_h_t"],
-            input["alpha_0"], input["r_over_R"]);
+        para_ptr = new (buffer) Stellarator(input);
     } else if (!std::string{"cylinder"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Cylinder(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"]);
+        para_ptr = new (buffer) Cylinder(input);
     } else {
         throw std::runtime_error("Input configuration not supported yet.");
     }
