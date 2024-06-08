@@ -96,17 +96,41 @@ Value& Value::operator[](const char* key) {
 }
 
 const Value& Value::at(const std::string& key) const {
-    return as_object().at(key);
+    try {
+        return as_object().at(key);
+    } catch (std::exception& e) {
+        std::ostringstream oss;
+        oss << "Failed to accessing key: " << key;
+        throw std::runtime_error(oss.str());
+    }
 }
 const Value& Value::at(std::size_t idx) const {
-    return as_array().at(idx);
+    try {
+        return as_array().at(idx);
+    } catch (std::exception& e) {
+        std::ostringstream oss;
+        oss << "Failed to accessing index: " << idx;
+        throw std::runtime_error(oss.str());
+    }
 }
 
 Value& Value::at(const std::string& key) {
-    return as_object().at(key);
+    try {
+        return as_object().at(key);
+    } catch (std::exception& e) {
+        std::ostringstream oss;
+        oss << "Failed to accessing key: " << key;
+        throw std::runtime_error(oss.str());
+    }
 }
 Value& Value::at(std::size_t idx) {
-    return as_array().at(idx);
+    try {
+        return as_array().at(idx);
+    } catch (std::exception& e) {
+        std::ostringstream oss;
+        oss << "Failed to accessing index: " << idx;
+        throw std::runtime_error(oss.str());
+    }
 }
 
 const Value::object_container_type& Value::as_object() const {
