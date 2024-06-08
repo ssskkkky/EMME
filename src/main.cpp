@@ -169,8 +169,8 @@ int main() {
         }
     }
 
-    result["result"] = Value::create_array();
-    auto& result_array = result["result"].as_array();
+    result["result"] = Value::create_object();
+    auto& result_object = result["result"].as_object();
 
     if (scan_config.empty()) {
         // Do not need to scan any parameter
@@ -181,7 +181,7 @@ int main() {
         std::cout << '\n';
         scan_result_array.as_array().push_back(
             solve_once(input_all, omega_initial_guess));
-        result_array.push_back(std::move(result_unit));
+        result_object["(None)"] = std::move(result_unit);
     } else {
         auto omega = omega_initial_guess;
         for (const auto& [key, scan_para] : scan_config) {
@@ -191,11 +191,15 @@ int main() {
             auto [cont, turning, scan_value] = get_scan_val();
             auto result_unit = Value::create_object();
             result_unit["scan_key"] = key;
+            auto& scan_value_array = result_unit["scan_values"] =
+                Value::create_array();
+
             auto& scan_result_array = result_unit["scan_result"] =
                 Value::create_array();
             std::cout << "\nScanning " << key << '\n';
             while (cont) {
                 input[key] = scan_value;
+                scan_value_array.as_array().push_back(scan_value);
 
                 // begin to scan another direction
                 if (turning) {
@@ -212,7 +216,7 @@ int main() {
                     std::move(single_result));
                 std::tie(cont, turning, scan_value) = get_scan_val();
             }
-            result_array.push_back(std::move(result_unit));
+            result_object[key] = std::move(result_unit);
         }
 
         // reset initial guess

@@ -30,7 +30,7 @@ int main() {
             std::is_same_v<decltype(obj["a"] - obj["bs"][1]), double>);
 
         try {
-            double d = obj["abc"];
+            double d = obj.at("abc");
             static_cast<void>(d);
         } catch (std::exception& e) {
             std::cout << "Try to get an undefined property as number\n";
