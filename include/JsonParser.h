@@ -99,6 +99,12 @@ struct Value {
           value_cat(cat) {
     }
 
+    template <std::integral T>
+    Value(T val) : Value(ValueCategory::NumberInt, new NumberInt{val}) {}
+
+    template <std::floating_point T>
+    Value(T val) : Value(ValueCategory::NumberFloat, new NumberFloat{val}) {}
+
     Value clone() const;
 
     Value(const Value&);

@@ -351,7 +351,7 @@ Value Value::create_object() {
     return {ValueCategory::Object, new Object{}};
 }
 Value Value::create_array(std::size_t n) {
-    return {ValueCategory::Array, new Array{array_container_type{n}}};
+    return {ValueCategory::Array, new Array{array_container_type(n)}};
 }
 
 JsonLexer::JsonLexer(std::istream& is, std::string file_name)
