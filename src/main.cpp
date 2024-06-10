@@ -217,10 +217,9 @@ int main() {
                 std::tie(cont, turning, scan_value) = get_scan_val();
             }
             result_object[key] = std::move(result_unit);
+            // reset initial guess
+            omega = omega_initial_guess;
         }
-
-        // reset initial guess
-        omega = omega_initial_guess;
     }
 
     timer.start_timing("Output");
