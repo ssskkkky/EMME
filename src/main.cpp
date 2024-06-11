@@ -93,13 +93,14 @@ auto get_scan_generator(const auto& para) {
     current = head;
     current_tail = left_tail;
 
-    // This stupid but worked 0.01 term is for dealing with the float
-    // error
-    auto within_range = [&]() {
-        return std::abs(current - head) <=
-               (std::abs(current_tail - head) + 0.01 * std::abs(step));
-    };
     return [&]() mutable {
+        // This stupid but worked 0.01 term is for dealing with the float
+        // error
+        auto within_range = [&]() {
+            return std::abs(current - head) <=
+                   (std::abs(current_tail - head) + 0.01 * std::abs(step));
+        };
+
         if (!is_first) {
             current += std::copysign(step, (current_tail - head));
         }
