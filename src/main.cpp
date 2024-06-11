@@ -15,7 +15,9 @@
 
 using namespace util::json;
 
-auto solve_once(auto& input, auto& omega_initial_guess) {
+auto solve_once(auto& input,
+                auto omega_initial_guess,
+                std::ofstream& eigen_matrix_file) {
     auto& timer = Timer::get_timer();
     double tol = input["iteration_precision"];
 
@@ -61,6 +63,10 @@ auto solve_once(auto& input, auto& omega_initial_guess) {
     }
 
     std::cout << "        Eigenvalue: " << eigen_solver.eigen_value << '\n';
+
+    auto& v_output = eigen_solver.eigen_matrix;
+    eigen_matrix_file.write(reinterpret_cast<char*>(v_output.data()),
+                            sizeof(v_output(0, 0)) * v_output.size());
 
     // store eigenvalue and eigenvector to result
 
@@ -172,6 +178,7 @@ int main() {
     result["result"] = Value::create_object();
     auto& result_object = result["result"].as_object();
 
+    std::ofstream eigen_matrix_file("eigenMatrix.bin", std::ios::binary);
     if (scan_config.empty()) {
         // Do not need to scan any parameter
         auto result_unit = Value::create_object();
@@ -180,7 +187,7 @@ int main() {
             Value::create_array();
         std::cout << '\n';
         scan_result_array.as_array().push_back(
-            solve_once(input_all, omega_initial_guess));
+            solve_once(input_all, omega_initial_guess, eigen_matrix_file));
         result_object["(None)"] = std::move(result_unit);
     } else {
         auto omega = omega_initial_guess;
@@ -210,7 +217,8 @@ int main() {
 
                 std::cout << "    " << key << ":" << scan_value << '\n';
 
-                auto single_result = solve_once(input, omega);
+                auto single_result =
+                    solve_once(input, omega, eigen_matrix_file);
                 single_result["scan_value"] = scan_value;
                 scan_result_array.as_array().push_back(
                     std::move(single_result));
