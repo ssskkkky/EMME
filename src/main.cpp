@@ -67,7 +67,6 @@ auto solve_once(auto& input,
     auto& v_output = eigen_solver.eigen_matrix;
     eigen_matrix_file.write(reinterpret_cast<char*>(v_output.data()),
                             sizeof(v_output(0, 0)) * v_output.size());
-    timer.pause_timing("Output");
 
     // store eigenvalue and eigenvector to result
 
@@ -75,6 +74,7 @@ auto solve_once(auto& input,
     auto& eva = single_result["eigenvalue"] = Value::create_array(2);
     eva[0] = eigen_solver.eigen_value.real();
     eva[1] = eigen_solver.eigen_value.imag();
+    timer.pause_timing("Output");
 
     timer.start_timing("SVD");
     single_result["eigenvector"] =
@@ -180,7 +180,6 @@ int main() {
     result["result"] = Value::create_object();
     auto& result_object = result["result"].as_object();
 
-    std::ofstream eigen_matrix_file("eigenMatrix.bin", std::ios::binary);
     if (scan_config.empty()) {
         // Do not need to scan any parameter
         auto result_unit = Value::create_object();
@@ -188,6 +187,11 @@ int main() {
         auto& scan_result_array = result_unit["scan_result"] =
             Value::create_array();
         std::cout << '\n';
+
+        auto eigen_matrix_file_name = "eigenMatrics/eigenMatrix.bin";
+        std::ofstream eigen_matrix_file(eigen_matrix_file_name,
+                                        std::ios::binary);
+
         scan_result_array.as_array().push_back(
             solve_once(input_all, omega_initial_guess, eigen_matrix_file));
         result_object["(None)"] = std::move(result_unit);
@@ -219,8 +223,14 @@ int main() {
 
                 std::cout << "    " << key << ":" << scan_value << '\n';
 
+                auto eigen_matrix_file_name = "eigenMatrics/" + key + "Eq" +
+                                              std::to_string(scan_value) +
+                                              ".bin";
+                std::ofstream eigen_matrix_file(eigen_matrix_file_name,
+                                                std::ios::binary);
                 auto single_result =
                     solve_once(input, omega, eigen_matrix_file);
+                single_result["eigenMatrix"] = eigen_matrix_file_name;
                 single_result["scan_value"] = scan_value;
                 scan_result_array.as_array().push_back(
                     std::move(single_result));
