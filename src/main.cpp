@@ -63,10 +63,11 @@ auto solve_once(auto& input,
     }
 
     std::cout << "        Eigenvalue: " << eigen_solver.eigen_value << '\n';
-
+    timer.start_timing("Output");
     auto& v_output = eigen_solver.eigen_matrix;
     eigen_matrix_file.write(reinterpret_cast<char*>(v_output.data()),
                             sizeof(v_output(0, 0)) * v_output.size());
+    timer.pause_timing("Output");
 
     // store eigenvalue and eigenvector to result
 
