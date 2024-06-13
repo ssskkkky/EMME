@@ -1,6 +1,7 @@
 #include "Parameters.h"
 
 #include <cmath>
+#include <iostream>
 #include <tuple>
 
 #include "functions.h"
@@ -489,8 +490,20 @@ Cylinder::Cylinder(double q_input,
                  integration_accuracy_input,
                  integration_iteration_limit_input,
                  integration_start_points_input,
-                 arc_coeff_input) {}
+                 arc_coeff_input),
+      shat_coeff(shat_coeff_f(shat)) {
+    std::cout << shat_coeff << std::endl;
+}
 
-double Cylinder::g_integration_f(double eta) const {
-    return shat * eta;
+double Cylinder::shat_coeff_f(double sv) const {
+    auto ansx_shat = 3.14973 - 0.374507 / sv + 0.0235059 / (sv * sv);
+    return g_integration_f(ansx_shat) / ansx_shat;
+}
+// double Cylinder::beta_1(double eta) const {
+//     return shat * eta;
+// }
+
+double Cylinder::beta_1(double eta, double eta_p) const {
+    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p) *
+           shat_coeff;
 }

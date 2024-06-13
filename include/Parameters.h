@@ -54,7 +54,7 @@ struct Parameters {
     double omega_d_bar;  // Calculated in constructor
     virtual void parameterInit();
     virtual double g_integration_f(double eta) const;
-    double beta_1(double eta, double eta_p) const;
+    virtual double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
     virtual double bi(double eta) const;
 
@@ -165,7 +165,9 @@ struct Cylinder : public Parameters {
              int integration_start_points,
              double arc_coeff_input);
 
-    double g_integration_f(double eta) const override;
+    double shat_coeff;
+    double shat_coeff_f(double sv) const;
+    double beta_1(double eta, double eta_p) const override;
 };
 
 static_assert(std::is_trivially_destructible_v<Parameters>,
