@@ -16,7 +16,7 @@
 using namespace util::json;
 
 auto solve_once(auto& input,
-                auto omega_initial_guess,
+                auto& omega_initial_guess,
                 std::ofstream& eigen_matrix_file) {
     auto& timer = Timer::get_timer();
     double tol = input["iteration_precision"];
