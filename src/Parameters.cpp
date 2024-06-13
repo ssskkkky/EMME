@@ -393,50 +393,14 @@ double Stellarator::g_integration_f(double eta) const {
             (1 + lh - mh * q));
 }
 
-Cylinder::Cylinder(double q_input,
-                   double shat_input,
-                   double tau_input,
-                   double epsilon_n_input,
-                   double eta_i_input,
-                   double eta_e_input,
-                   double b_theta_input,
-                   double beta_e_input,
-                   double R_input,
-                   double vt_input,
-                   double length_input,
-                   double theta_input,
-                   int npoints_input,
-                   int iteration_step_limit_input,
-                   double integration_precision_input,
-                   double integration_accuracy_input,
-                   int integration_iteration_limit_input,
-                   int integration_start_points_input,
-                   double arc_coeff_input)
-    : Parameters(q_input,
-                 shat_input,
-                 tau_input,
-                 epsilon_n_input,
-                 eta_i_input,
-                 eta_e_input,
-                 b_theta_input,
-                 beta_e_input,
-                 R_input,
-                 vt_input,
-                 length_input,
-                 theta_input,
-                 npoints_input,
-                 iteration_step_limit_input,
-                 integration_precision_input,
-                 integration_accuracy_input,
-                 integration_iteration_limit_input,
-                 integration_start_points_input,
-                 arc_coeff_input),
-      shat_coeff(shat_coeff_f(shat)) {
+Cylinder::Cylinder(const util::json::Value& input)
+    : Parameters(input), shat_coeff(shat_coeff_f(shat)) {
     std::cout << shat_coeff << std::endl;
 }
 
 double Cylinder::shat_coeff_f(double sv) const {
-    auto ansx_shat = 3.14973 - 0.374507 / sv + 0.0235059 / (sv * sv);
+    auto ansx_shat = 3.149734790965909 - 0.3745070103237505 / sv +
+                     0.02350589143082148 / (sv * sv);
     return g_integration_f(ansx_shat) / ansx_shat;
 }
 // double Cylinder::beta_1(double eta) const {

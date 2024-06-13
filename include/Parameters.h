@@ -107,7 +107,7 @@ struct Stellarator : public Parameters {
 };
 
 struct Cylinder : public Parameters {
-    using Parameters::Parameters;
+    Cylinder(const util::json::Value&);
 
     double shat_coeff;
     double shat_coeff_f(double sv) const;
