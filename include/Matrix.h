@@ -138,6 +138,10 @@ class Matrix {
         return cols_;
     }
 
+    size_type size() const {
+        return rows_ * cols_;
+    }
+
     // Get a specific column
     const std::vector<T> getCol(size_type col) const {
 #ifdef EMME_DEBUG

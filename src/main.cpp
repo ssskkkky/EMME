@@ -16,9 +16,8 @@
 using namespace util::json;
 
 auto solve_once(auto& input,
-                auto& result_array,
-                const auto& scan_key,
-                auto omega_initial_guess) {
+                auto& omega_initial_guess,
+                std::ofstream& eigen_matrix_file) {
     auto& timer = Timer::get_timer();
     double tol = input["iteration_precision"];
 
@@ -28,35 +27,13 @@ auto solve_once(auto& input,
     // Parameters and Stellarator are both trivially
     // destructible, no need to bother calling their
     // destructors.
+    // TODO: use factory method pattern
     if (!std::string{"tokamak"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Parameters(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"]);
+        para_ptr = new (buffer) Parameters(input);
     } else if (!std::string{"stellarator"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Stellarator(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"],
-            input["eta_k"], input["lh"], input["mh"], input["epsilon_h_t"],
-            input["alpha_0"], input["r_over_R"]);
+        para_ptr = new (buffer) Stellarator(input);
     } else if (!std::string{"cylinder"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Cylinder(
-            input["q"], input["shat"], input["tau"], input["epsilon_n"],
-            input["eta_i"], input["eta_e"], input["k_rho"] * input["k_rho"],
-            input["beta_e"], input["R"], input["vt"], input["length"],
-            input["theta"], input["npoints"], input["iteration_step_limit"],
-            input["integration_precision"], input["integration_accuracy"],
-            input["integration_iteration_limit"],
-            input["integration_start_points"], input["arc_coeff"]);
+        para_ptr = new (buffer) Cylinder(input);
     } else {
         throw std::runtime_error("Input configuration not supported yet.");
     }
@@ -78,31 +55,77 @@ auto solve_once(auto& input,
         eigen_solver.newtonTraceSecantIteration();
         timer.pause_timing("newtonTracSecantIteration");
 
-        std::cout << eigen_solver.eigen_value << std::endl;
+        std::cout << "        " << eigen_solver.eigen_value << '\n';
         if (std::abs(eigen_solver.d_eigen_value) <
             std::abs(tol * eigen_solver.eigen_value)) {
             break;
         }
     }
 
-    std::cout << "Eigenvalue: " << eigen_solver.eigen_value.real() << " "
-              << eigen_solver.eigen_value.imag() << '\n';
+    std::cout << "        Eigenvalue: " << eigen_solver.eigen_value << '\n';
+    timer.start_timing("Output");
+    auto& v_output = eigen_solver.eigen_matrix;
+    eigen_matrix_file.write(reinterpret_cast<char*>(v_output.data()),
+                            sizeof(v_output(0, 0)) * v_output.size());
 
     // store eigenvalue and eigenvector to result
-    auto result_unit = Value::create_object();
-    result_unit["scan_value"] = input[scan_key];
-    auto& eva = result_unit["eigenvalue"] = Value::create_array(2);
+
+    auto single_result = Value::create_object();
+    auto& eva = single_result["eigenvalue"] = Value::create_array(2);
     eva[0] = eigen_solver.eigen_value.real();
     eva[1] = eigen_solver.eigen_value.imag();
+    timer.pause_timing("Output");
 
     timer.start_timing("SVD");
-    result_unit["eigenvector"] =
+    single_result["eigenvector"] =
         Value::create_typed_array(eigen_solver.nullSpace());
     timer.pause_timing("SVD");
 
-    result_array.push_back(std::move(result_unit));
+    omega_initial_guess = eigen_solver.eigen_value;
+    return single_result;
+}
 
-    return eigen_solver.eigen_value;
+auto get_scan_generator(const auto& para) {
+    static double head, step, right_tail, left_tail, current, current_tail;
+    static bool to_left, is_first;
+
+    to_left = is_first = true;
+    std::tie(head, step, left_tail, right_tail) = util::unpack(para);
+    current = head;
+    current_tail = left_tail;
+
+    return [&]() mutable {
+        // This stupid but worked 0.01 term is for dealing with the float
+        // error
+        auto within_range = [&]() {
+            return std::abs(current - head) <=
+                   (std::abs(current_tail - head) + 0.01 * std::abs(step));
+        };
+
+        if (!is_first) {
+            current += std::copysign(step, (current_tail - head));
+        }
+        is_first = false;
+
+        if (within_range()) {
+            return std::make_tuple(true, false, current);
+        } else {
+            // go to another direction
+            to_left = !to_left;
+            current_tail = right_tail;
+            current = head + std::copysign(step, (current_tail - head));
+
+            return std::make_tuple(!to_left && within_range(), true, current);
+        }
+    };
+}
+
+auto filter_input(const auto& input_all) {
+    auto input = input_all.clone();
+    for (auto& [key, val] : input.as_object()) {
+        if (val.is_object()) { val = val["head"]; }
+    }
+    return input;
 }
 
 int main() {
@@ -117,9 +140,6 @@ int main() {
     auto input = input_all.clone();
     std::complex<double> omega_initial_guess(input["initial_guess"][0],
                                              input["initial_guess"][1]);
-
-    // record omega_head as the initial guess for other side scanning.
-    auto omega_head = omega_initial_guess;
 
     // create output object
     auto result = Value::create_object();
@@ -136,54 +156,99 @@ int main() {
 #endif
     result["run_time"] = util::get_date_string();
 
-    // find out which parameter is setup for scan
-    std::string scan_key{};
-    Value scan_opt;
+    // scan_config["key"] = {heaad, step, tail, another_tail};
+    // another_tail is optional, depending on the input
+    std::unordered_map<std::string, std::array<double, 4>> scan_config;
     for (auto& [key, val] : input_all.as_object()) {
         if (val.is_object()) {
-            scan_key = key;
-            scan_opt = val.clone();
-        }
-    }
-
-    result["scan_parameter"] = scan_key;
-    result["result"] = Value::create_array();
-    auto& result_array = result["result"].as_array();
-
-    auto head = scan_opt["head"];
-    const auto step = scan_opt["step"];
-    auto tail_array = scan_opt["tail"].as_array();
-    for (unsigned int ii = 0; ii < 2; ii++) {
-        const auto& tail = tail_array[ii];
-        for (input[scan_key] = head;
-             std::abs(input[scan_key] - scan_opt["head"]) <=
-             (std::abs(tail - scan_opt["head"]) +
-              // This stupid but worked 0.01 term is for dealing with
-              // the float error
-              0.01 * std::abs(step));
-             input[scan_key] += std::copysign(step, (tail - head))) {
-            std::cout << scan_key << ":" << input[scan_key] << '\n';
-            omega_initial_guess =
-                solve_once(input, result_array, scan_key, omega_initial_guess);
-
-            // store the result of head
-            if (ii == 0 && input[scan_key] == head) {
-                omega_head = omega_initial_guess;
+            auto iter = scan_config
+                            .emplace(key, std::array<double, 4>{val["head"],
+                                                                val["step"]})
+                            .first;
+            if (val["tail"].is_array()) {
+                iter->second[2] = val["tail"][0];
+                iter->second[3] = val["tail"][1];
+            } else {
+                iter->second[2] = val["tail"];
+                iter->second[3] =
+                    val["head"] +
+                    .5 * std::copysign(val["step"], val["head"] - val["tail"]);
             }
         }
-
-        // After scanning one direction, reset the head to middle, but one step
-        // towards another direction, preventing recalculation.
-        head = scan_opt["head"] +
-               std::copysign(step, tail_array[1] - scan_opt["head"]);
-        omega_initial_guess = omega_head;
     }
+
+    result["result"] = Value::create_object();
+    auto& result_object = result["result"].as_object();
+
+    if (scan_config.empty()) {
+        // Do not need to scan any parameter
+        auto result_unit = Value::create_object();
+        result_unit["scan_key"] = "(None)";
+        auto& scan_result_array = result_unit["scan_result"] =
+            Value::create_array();
+        std::cout << '\n';
+
+        auto eigen_matrix_file_name = "eigenMatrics/eigenMatrix.bin";
+        std::ofstream eigen_matrix_file(eigen_matrix_file_name,
+                                        std::ios::binary);
+
+        scan_result_array.as_array().push_back(
+            solve_once(input_all, omega_initial_guess, eigen_matrix_file));
+        result_object["(None)"] = std::move(result_unit);
+    } else {
+        auto omega = omega_initial_guess;
+        for (const auto& [key, scan_para] : scan_config) {
+            // for each parameter need to be scanned
+            auto input = filter_input(input_all);
+            auto get_scan_val = get_scan_generator(scan_para);
+            auto [cont, turning, scan_value] = get_scan_val();
+            auto result_unit = Value::create_object();
+            result_unit["scan_key"] = key;
+            auto& scan_value_array = result_unit["scan_values"] =
+                Value::create_array();
+
+            auto& scan_result_array = result_unit["scan_result"] =
+                Value::create_array();
+            std::cout << "\nScanning " << key << '\n';
+            while (cont) {
+                input[key] = scan_value;
+                scan_value_array.as_array().push_back(scan_value);
+
+                // begin to scan another direction
+                if (turning) {
+                    auto& new_omega = scan_result_array[0]["eigenvalue"];
+                    omega.real(new_omega[0]);
+                    omega.imag(new_omega[1]);
+                }
+
+                std::cout << "    " << key << ":" << scan_value << '\n';
+
+                auto eigen_matrix_file_name = "eigenMatrics/" + key + "Eq" +
+                                              std::to_string(scan_value) +
+                                              ".bin";
+                std::ofstream eigen_matrix_file(eigen_matrix_file_name,
+                                                std::ios::binary);
+                auto single_result =
+                    solve_once(input, omega, eigen_matrix_file);
+                single_result["eigenMatrix"] = eigen_matrix_file_name;
+                single_result["scan_value"] = scan_value;
+                scan_result_array.as_array().push_back(
+                    std::move(single_result));
+                std::tie(cont, turning, scan_value) = get_scan_val();
+            }
+            result_object[key] = std::move(result_unit);
+            // reset initial guess
+            omega = omega_initial_guess;
+        }
+    }
+
     timer.start_timing("Output");
     std::ofstream output(output_filename);
     output << result.dump();
     timer.pause_timing("Output");
 
     timer.pause_timing("All");
+    std::cout << '\n';
     timer.print();
     std::cout << '\n';
 

@@ -374,6 +374,13 @@ auto bessel_i_helper(const T& z) {
 
 std::string get_date_string();
 
+template <typename T, std::size_t N>
+auto unpack(const std::array<T, N>& arr) {
+    return ([&]<std::size_t... idx>(std::index_sequence<idx...>) {
+        return std::tuple<const decltype(arr[idx])...>(arr[idx]...);
+    })(std::make_index_sequence<N>{});
+}
+
 }  // namespace util
 
 template <typename T>

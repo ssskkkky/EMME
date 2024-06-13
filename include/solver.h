@@ -101,32 +101,13 @@ class EigenSolver {
                       &dimm, VT.data(), &dimm, work.data(), &lwork,
                       rwork.data(), iwork.data(), &info);
 #endif
+        // lapack is coloum major order but we are Row major order, VT is not V
+        auto kernel_vector = VT.getCol(VT.getCols() - 1);
 
-        auto V = VT;
+        for (auto& ele : kernel_vector) { ele = std::conj(ele); }
 
-        // ... perform SVD on A and store results in S, U, V
-
-        // Identify null space basis vectors and construct the null space matrix
-        int null_space_dim = 0;  // Count the number of null space basis vectors
-        for (unsigned i = 0; i < A.getCols(); ++i) {
-            // Check for singular values close to zero (tolerance approach)
-            if (std::abs(S[i]) < null_space_tol) { null_space_dim++; }
-        }
-
-        // Create a result matrix to store the null space basis vectors as
-        // columns
-        matrix_type null_space(A.getRows(), null_space_dim);
-        int col_index = 0;
-        for (unsigned int i = 0; i < A.getCols(); ++i) {
-            // Check for singular values close to zero (tolerance approach)
-            if (std::abs(S[i]) < null_space_tol) {
-                // Extract the corresponding right singular vector and store in
-                // null space matrix
-                null_space.setCol(col_index, V.getCol(i));
-                col_index++;
-            }
-        }
-        return V.getCol(V.getCols() - 1);
+        return kernel_vector;
+        ;
     };
     void newtonTraceSecantIteration() {
         eigen_matrix_old = eigen_matrix;
