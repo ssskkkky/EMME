@@ -5,28 +5,38 @@
 
 using namespace std::chrono;
 
-Timer::Timer() {
-    time_consuming["integration"] = std::make_pair(
-        high_resolution_clock::duration::zero(), high_resolution_clock::now());
-
-    time_consuming["linear solver"] = std::make_pair(
-        high_resolution_clock::duration::zero(), high_resolution_clock::now());
+void Timer::start_timing(std::string func_name) {
+    current_func_name = func_name;
+    auto emplace_reuslt = time_consuming.emplace(
+        func_name, std::make_pair(high_resolution_clock::duration::zero(),
+                                  high_resolution_clock::now()));
+    if (emplace_reuslt.second) {
+        entries.push_back(func_name);
+    } else {
+        emplace_reuslt.first->second.second = high_resolution_clock::now();
+    }
 }
 
-void Timer::start_timing(std::string func_name) {
-    if (!time_consuming.contains(func_name)) { entries.push_back(func_name); }
-    time_consuming[func_name].second = high_resolution_clock::now();
+void Timer::pause_and_start(std::string func_name) {
+    pause_timing();
+    start_timing(func_name);
+}
+
+void Timer::pause_timing() {
+    auto end_time = high_resolution_clock::now();
+    auto elapsed_time = end_time - time_consuming.at(current_func_name).second;
+    time_consuming.at(current_func_name).first += elapsed_time;
 }
 
 void Timer::pause_timing(std::string func_name) {
     auto end_time = high_resolution_clock::now();
-    auto elapsed_time = end_time - time_consuming[func_name].second;
-    time_consuming[func_name].first += elapsed_time;
+    auto elapsed_time = end_time - time_consuming.at(func_name).second;
+    time_consuming.at(func_name).first += elapsed_time;
 }
 
-void Timer::reset(std::string func_name) {
-    time_consuming[func_name].first =
-        decltype(time_consuming[func_name].first){};
+void Timer::reset() {
+    entries.clear();
+    time_consuming.clear();
 }
 
 void Timer::print() {
