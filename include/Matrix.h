@@ -7,30 +7,15 @@
 #include <vector>
 
 #ifdef EMME_EXPRESSION_TEMPLATE
-#include <functional>
-
 #include "Arithmetics.h"
-
-template <typename T>
-concept has_dimension = requires(T t) {
-    t.get_dim();
-};
-
-template <util::Indexable E1, util::Indexable E2>
-auto operator-(const E1& e1,
-               const E2& e2) requires(has_dimension<E1>&& has_dimension<E2>) {
-    return util::BinaryExpression<E1, E2, std::minus<void>>{e1, e2};
-}
-
-template <util::Indexable E1, typename E2>
-auto operator/(const E1& e1, const E2& e2) requires(has_dimension<E1>) {
-    return util::BinaryExpressionA2<E1, E2, std::divides<void>>{e1, e2};
-}
-
 #endif
 
 template <typename T, typename A = std::allocator<T>>
-class Matrix {
+class Matrix
+#ifdef EMME_EXPRESSION_TEMPLATE
+    : public util::ExpressionTemplate
+#endif
+{
    public:
     using size_type = std::size_t;
     using value_type = T;
@@ -41,8 +26,12 @@ class Matrix {
     Matrix(size_type rows, size_type cols)
         : rows_(rows), cols_(cols), data_(rows * cols) {}
 
-    auto begin() const noexcept { return data_.begin(); }
-    auto end() const noexcept { return data_.end(); }
+    auto begin() const noexcept {
+        return data_.begin();
+    }
+    auto end() const noexcept {
+        return data_.end();
+    }
 
     // Access element at (row, col)
     value_type& operator()(size_type row, size_type col) {
@@ -95,23 +84,17 @@ class Matrix {
     }
 
 #ifdef EMME_EXPRESSION_TEMPLATE
-    explicit Matrix(util::Dimension<2> dim) : Matrix(dim.dim[0], dim.dim[1]) {}
-
-    template <util::Indexable U>
+    template <util::expression_template U>
     matrix_type& operator=(const U& other) {
         for (size_type i = 0; i < data_.size(); ++i) { data_[i] = other[i]; }
         return *this;
     }
 
-    template <util::Indexable U>
+    template <util::expression_template U>
     Matrix(const U& other) requires(
         !std::is_same_v<std::remove_cvref_t<U>, matrix_type>)
         : Matrix(other.get_dim()) {
         operator=(other);
-    }
-
-    auto get_dim() const {
-        return util::Dimension<2>{{rows_, cols_}};
     }
 
     const value_type& operator[](size_type idx) const {
