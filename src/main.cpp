@@ -22,22 +22,8 @@ auto solve_once(auto& input,
     double tol = input["iteration_precision"];
 
     timer.start_timing("initial");
-    alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
-    Parameters* para_ptr = nullptr;
-    // Parameters and Stellarator are both trivially
-    // destructible, no need to bother calling their
-    // destructors.
-    // TODO: use factory method pattern
-    if (!std::string{"tokamak"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Parameters(input);
-    } else if (!std::string{"stellarator"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Stellarator(input);
-    } else if (!std::string{"cylinder"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Cylinder(input);
-    } else {
-        throw std::runtime_error("Input configuration not supported yet.");
-    }
-    auto& para = *para_ptr;
+
+    auto& para = parameter_generator(input);
 
     auto length = para.length;
     auto npoints = para.npoints;

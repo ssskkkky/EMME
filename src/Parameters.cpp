@@ -395,3 +395,24 @@ double Stellarator::g_integration_f(double eta) const {
 double Cylinder::g_integration_f(double eta) const {
     return eta;
 }
+
+const Parameters& parameter_generator(const util::json::Value& input) {
+    // Stellarator is the largest derived class
+    alignas(Stellarator) static std::byte buffer[sizeof(Stellarator)];
+    Parameters* para_ptr = nullptr;
+
+    // Parameters and Stellarator are both trivially
+    // destructible, no need to bother calling their
+    // destructors.
+    if (std::string{"tokamak"}.compare(input.at("conf")) == 0) {
+        para_ptr = new (buffer) Parameters(input);
+    } else if (std::string{"stellarator"}.compare(input.at("conf")) == 0) {
+        para_ptr = new (buffer) Stellarator(input);
+    } else if (std::string{"cylinder"}.compare(input.at("conf")) == 0) {
+        para_ptr = new (buffer) Cylinder(input);
+    } else {
+        throw std::runtime_error("Input configuration not supported yet.");
+    }
+
+    return *para_ptr;
+}

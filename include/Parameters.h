@@ -112,6 +112,8 @@ struct Cylinder : public Parameters {
     double g_integration_f(double eta) const override;
 };
 
+const Parameters& parameter_generator(const util::json::Value&);
+
 static_assert(std::is_trivially_destructible_v<Parameters>,
               "Paramters should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<Stellarator>,
