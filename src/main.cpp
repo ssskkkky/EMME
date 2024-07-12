@@ -12,6 +12,7 @@
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
+#include "solver_pic.h"
 
 using namespace util::json;
 
@@ -71,6 +72,27 @@ auto solve_once(auto& input,
     return single_result;
 }
 
+auto solve_once_pic(const auto& input) {
+    auto& para = Parameters::generate(input);
+    const std::size_t marker_per_cell = 1 << 9;
+    PIC_State<double> state(para, marker_per_cell);
+    Integrator integrator(state);
+
+    const std::size_t time_step = 80;
+    const double dt = 0.25;
+
+    Matrix<std::complex<double>> phi_history(time_step, para.npoints);
+    for (std::size_t idx = 0; idx < time_step; ++idx) {
+        integrator.step(dt);
+        phi_history.setRow(idx, state.current_field());
+        std::cout << idx + 1 << '/' << time_step << '\n';
+    }
+
+    std::ofstream ofs("PIC_phi.bin");
+    ofs.write(reinterpret_cast<char*>(phi_history.data()),
+              sizeof(phi_history(0, 0)) * phi_history.size());
+}
+
 auto get_scan_generator(const auto& para) {
     static double head, step, right_tail, left_tail, current, current_tail;
     static bool to_left, is_first;
@@ -115,6 +137,10 @@ auto filter_input(const auto& input_all) {
 }
 
 int main() {
+    std::string filename = "input.json";
+    auto input = util::json::parse_file(filename);
+    solve_once_pic(filter_input(input));
+#if 0
     auto& timer = Timer::get_timer();
     timer.start_timing("All");
     using namespace std::string_literals;
@@ -237,6 +263,6 @@ int main() {
     std::cout << '\n';
     timer.print();
     std::cout << '\n';
-
+#endif
     return 0;
 }
