@@ -23,7 +23,7 @@ auto solve_once(auto& input,
 
     timer.start_timing("initial");
 
-    auto& para = parameter_generator(input);
+    auto& para = Parameters::generate(input);
 
     auto length = para.length;
     auto npoints = para.npoints;
