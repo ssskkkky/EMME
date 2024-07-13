@@ -74,11 +74,11 @@ auto solve_once(auto& input,
 
 auto solve_once_pic(const auto& input) {
     auto& para = Parameters::generate(input);
-    const std::size_t marker_per_cell = 1 << 9;
+    const std::size_t marker_per_cell = 1 << 12;
     PIC_State<double> state(para, marker_per_cell);
     Integrator integrator(state);
 
-    const std::size_t time_step = 80;
+    const std::size_t time_step = 160;
     const double dt = 0.25;
 
     Matrix<std::complex<double>> phi_history(time_step, para.npoints);

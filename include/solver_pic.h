@@ -8,30 +8,34 @@
 #include <vector>
 
 #include "Arithmetics.h"
+#include "DedicatedThreadPool.h"
 #include "Parameters.h"
-
-template <typename T>
-struct Marker {
-    using value_type = T;
-
-    value_type eta;
-    value_type v_para;
-    value_type v_perp;
-    std::complex<value_type> w;
-
-    value_type omega_dv;
-    value_type omega_st;
-};
 
 template <typename T>
 struct PIC_State {
     using value_type = T;
     using complex_type = std::complex<value_type>;
-    using marker_container_type = std::vector<Marker<value_type>>;
+
+    struct Marker {
+        value_type eta;
+        const value_type v_para;
+        const value_type v_perp;
+        complex_type w;
+    };
+
+    struct MarkerExtra {
+        const value_type velocity_dependence_of_magnetic_drift_frequency;
+        const value_type diamagnetic_drift_frequency;
+        value_type bessel_j0;
+        complex_type drift_center_pull_back;
+    };
+
+    using marker_container_type = std::vector<Marker>;
+    using extra_container_type = std::vector<MarkerExtra>;
     using field_type = std::vector<complex_type>;
 
     struct velocity_type : util::ExpressionTemplate {
-        std::vector<std::complex<value_type>> data;
+        std::vector<complex_type> data;
 
         velocity_type(std::size_t n) : data(n) {}
 
@@ -43,7 +47,8 @@ struct PIC_State {
         : para(para_input),
           cell_width(2 * para.length / para.npoints),
           markers(initialize_marker(marker_num_per_cell * para.npoints)),
-          gamma0(cal_gamma0()),
+          marker_extras(initialize_marker_extras()),
+          qn_coef(cal_qn_coef()),
           field(initialize_field(para.npoints)) {}
 
     inline auto initial_velocity_storage() const {
@@ -51,32 +56,47 @@ struct PIC_State {
     }
 
     void put_velocity(velocity_type& vs) const {
-        for (std::size_t i = 0; i < marker_num(); ++i) {
-            const auto& [eta, v_para, v_perp, w, omega_dv, omega_st] =
-                markers[i];
+        auto& thread_pool = DedicatedThreadPool<void>::get_instance();
 
-            const auto x_perp = v_perp / para.vt;
-            const auto sb =
-                std::sqrt(para.b_theta * (1. + std::pow(para.shat * eta, 2)));
-            const auto j0 = std::cyl_bessel_j(0, x_perp * sb);
-            const auto dj0 = -para.b_theta * para.shat * para.shat * x_perp *
-                             eta * std::cyl_bessel_j(1, x_perp * sb) / sb;
+        auto cal_velocity = [this, &vs](std::size_t begin, std::size_t end) {
+            for (std::size_t i = begin; i < end; ++i) {
+                const auto& [eta, v_para, v_perp, w] = markers[i];
 
-            const auto [cell_idx, cell_w] = locate(eta);
-            const auto nf = field.size();
-            const auto phi = (1. - cell_w) * field[cell_idx] +
-                             cell_w * field[(cell_idx + 1) % nf];
-            const auto dphi =
-                ((1. - cell_w) * (field[(cell_idx + 1) % nf] -
-                                  field[(cell_idx + nf - 1) % nf]) +
-                 cell_w * (field[(cell_idx + 2) % nf] - field[cell_idx])) /
-                (2. * cell_width);
-            vs[i] = std::exp(complex_type{
-                        0., omega_d_integral(eta, v_para) * omega_dv}) *
-                    (complex_type{0., 1.} *
-                         (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
-                     v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
+                const auto x_perp = v_perp / para.vt;
+                const auto sb = std::sqrt(para.b_theta *
+                                          (1. + std::pow(para.shat * eta, 2)));
+                const auto dj0 = -para.b_theta * para.shat * para.shat *
+                                 x_perp * eta *
+                                 std::cyl_bessel_j(1, x_perp * sb) / sb;
+
+                const auto [cell_idx, cell_w] = locate(eta);
+                const auto nf = field.size();
+                const auto phi = (1. - cell_w) * field[cell_idx] +
+                                 cell_w * field[(cell_idx + 1) % nf];
+                const auto dphi =
+                    ((1. - cell_w) * (field[(cell_idx + 1) % nf] -
+                                      field[(cell_idx + nf - 1) % nf]) +
+                     cell_w * (field[(cell_idx + 2) % nf] - field[cell_idx])) /
+                    (2. * cell_width);
+
+                const auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
+                vs[i] = std::conj(dc_pb) *
+                        (complex_type{0., 1.} *
+                             (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
+                         v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
+            }
+        };
+
+        constexpr std::size_t block_size = 512;
+        std::vector<std::future<void>> res;
+        for (std::size_t i = 0; i < marker_num() / block_size; ++i) {
+            res.push_back(thread_pool.queue_task([&, i]() {
+                cal_velocity(i * block_size, (i + 1) * block_size);
+            }));
         }
+
+        cal_velocity(marker_num() / block_size * block_size, marker_num());
+        for (auto& f : res) { f.get(); }
     }
 
     template <typename U>
@@ -111,24 +131,30 @@ struct PIC_State {
         std::normal_distribution<value_type> normal(0, para.vt);
         std::chi_squared_distribution<value_type> chi(2);
 
-        // std::array<std::size_t, 20> hist{};
         for (std::size_t idx = 0; idx < n; ++idx) {
             initial_markers.push_back({.eta = uniform_eta(gen),
                                        .v_para = normal(gen),
                                        .v_perp = para.vt * std::sqrt(chi(gen)),
                                        .w = uniform_w(gen)});
-            auto& [eta, v_para, v_perp, w, omega_dv, omega_st] =
-                initial_markers.back();
-
-            omega_dv = (v_para * v_para + .5 * v_perp * v_perp) /
-                       (2. * para.vt * para.vt);
-            omega_st = para.omega_s_i *
-                       (1. + para.eta_i * ((v_para * v_para + v_perp * v_perp) /
-                                               (2. * para.vt * para.vt) -
-                                           1.5));
         }
 
         return initial_markers;
+    }
+    auto initialize_marker_extras() {
+        extra_container_type initial_extrasa;
+        initial_extrasa.reserve(marker_num());
+        for (const auto& [eta, v_para, v_perp, w] : markers) {
+            initial_extrasa.push_back(
+                {.velocity_dependence_of_magnetic_drift_frequency =
+                     (v_para * v_para + .5 * v_perp * v_perp) /
+                     (2. * para.vt * para.vt),
+                 .diamagnetic_drift_frequency =
+                     para.omega_s_i *
+                     (1. + para.eta_i * ((v_para * v_para + v_perp * v_perp) /
+                                             (2. * para.vt * para.vt) -
+                                         1.5))});
+        }
+        return initial_extrasa;
     }
     auto initialize_field(std::size_t n) {
         field_type initial_field(n);
@@ -143,28 +169,60 @@ struct PIC_State {
     }
 
     void solve_field() {
-        // calculate density
-        for (const auto& [eta, v_para, v_perp, w, omega_dv, omega_st] :
-             markers) {
-            const auto x_perp = v_perp / para.vt;
-            const auto sb =
-                std::sqrt(para.b_theta * (1. + std::pow(para.shat * eta, 2)));
-            const auto j0 = std::cyl_bessel_j(0, x_perp * sb);
+        constexpr std::size_t batch_count = 1 << 8;
+        auto& thread_pool = DedicatedThreadPool<void>::get_instance();
 
-            const auto den =
-                j0 * w *
-                std::exp(complex_type{
+        const auto nf = field.size();
+        // buffer
+        static std::vector<complex_type> buffer(batch_count * nf);
+
+        // calculate density
+        auto cal_density = [this](std::size_t begin, std::size_t end,
+                                  std::size_t buffer_begin) {
+            for (std::size_t i = 0; i < field.size(); ++i) {
+                buffer[buffer_begin + i] = 0;
+            }
+            for (std::size_t i = begin; i < end; ++i) {
+                const auto& [eta, v_para, v_perp, w] = markers[i];
+                auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
+
+                const auto x_perp = v_perp / para.vt;
+                const auto sb = std::sqrt(para.b_theta *
+                                          (1. + std::pow(para.shat * eta, 2)));
+                j0 = std::cyl_bessel_j(0, x_perp * sb);
+                dc_pb = std::exp(complex_type{
                     0., -omega_d_integral(eta, v_para) * omega_dv});
 
-            const auto [cell_idx, cell_w] = locate(eta);
+                const auto den = j0 * w * dc_pb;
 
-            // left grid point
-            field[cell_idx] += den * (1. - cell_w);
-            field[(cell_idx + 1) % field.size()] += den * cell_w;
+                const auto [cell_idx, cell_w] = locate(eta);
+
+                // left grid point
+                buffer[buffer_begin + cell_idx] += den * (1. - cell_w);
+                buffer[buffer_begin + (cell_idx + 1) % field.size()] +=
+                    den * cell_w;
+            }
+        };
+
+        std::vector<std::future<void>> res;
+        const auto batch_size = marker_num() / batch_count;
+        for (std::size_t i = 0; i < batch_count; ++i) {
+            res.push_back(thread_pool.queue_task([&, i]() {
+                cal_density(i * batch_size, (i + 1) * batch_size, i * nf);
+            }));
+        }
+        for (auto& f : res) { f.get(); }
+        cal_density(batch_size * batch_count, marker_num(), 0);
+
+        for (std::size_t idx = 0; idx < nf; ++idx) { field[idx] = 0; }
+        for (std::size_t i = 0; i < batch_count; ++i) {
+            for (std::size_t idx = 0; idx < nf; ++idx) {
+                field[idx] += buffer[i * nf + idx];
+            }
         }
 
-        for (std::size_t idx = 0; idx < field.size(); ++idx) {
-            field[idx] *= gamma0[idx];
+        for (std::size_t idx = 0; idx < nf; ++idx) {
+            field[idx] *= qn_coef[idx];
         }
     }
 
@@ -185,14 +243,20 @@ struct PIC_State {
                 para.shat * eta * std::cos(eta));
     }
 
-    inline auto cal_gamma0() const {
+    inline auto cal_qn_coef() const {
         std::vector<value_type> gamma0(para.npoints);
-        for (std::size_t idx = 0; idx < gamma0.size(); ++idx) {
+        for (std::size_t idx = 0; idx < qn_coef.size(); ++idx) {
             const auto b =
                 para.b_theta *
                 (1. +
                  std::pow(para.shat * (idx * cell_width - para.length), 2));
             gamma0[idx] = std::cyl_bessel_i(0, b) * std::exp(-b);
+            // (1+\frac{1}{\tau}+\Gamma_0)\delta\phi = \delta n
+            // ---------------------------
+            //             ||
+            //             ||
+            //          gamma0 now equals the inverse of this coefficient (with
+            //              proper normalization)
             gamma0[idx] = 2. * para.length /
                           (marker_num() * (1. + 1. / para.tau - gamma0[idx]) *
                            cell_width);
@@ -208,7 +272,8 @@ struct PIC_State {
     const Parameters& para;
     const value_type cell_width;
     marker_container_type markers;
-    const std::vector<value_type> gamma0;
+    extra_container_type marker_extras;
+    const std::vector<value_type> qn_coef;
     field_type field;
 };
 
