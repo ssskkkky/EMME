@@ -206,14 +206,66 @@ struct PIC_State {
 
         std::vector<std::future<void>> res;
         const auto batch_size = marker_num() / batch_count;
+        const auto remain_size = marker_num() % batch_count;
         for (std::size_t i = 0; i < batch_count; ++i) {
             res.push_back(thread_pool.queue_task([&, i]() {
-                cal_density(i * batch_size, (i + 1) * batch_size, i * nf);
+                cal_density(
+                    i * batch_size + (i < remain_size ? i : remain_size),
+                    (i + 1) * batch_size +
+                        (i < remain_size ? i + 1 : remain_size),
+                    i * nf);
             }));
         }
-        for (auto& f : res) { f.get(); }
-        cal_density(batch_size * batch_count, marker_num(), 0);
+#if 0
+        constexpr std::size_t reduce_size =
+            4;  // batch_count should be a power of this number
+        std::vector<std::future<void>> reduce_res;
+        // Reservation is necessary here since I do not lock this vector when
+        // visiting it in other threads
+        reduce_res.reserve((batch_count - 1) / (reduce_size - 1));
+        for (std::size_t i = 0, current_level_idx = 0,
+                         current_level_task_count = batch_count / reduce_size;
+             i < reduce_res.capacity(); ++i, ++current_level_idx) {
+            if (current_level_idx == current_level_task_count) {
+                current_level_task_count /= reduce_size;
+                current_level_idx = 0;
+            }
+            reduce_res.push_back(thread_pool.queue_task(
+                [&, current_level_idx, current_level_task_count]() {
+                    if (current_level_task_count < batch_count / reduce_size) {
+                        // wait for previous tasks
+                        std::size_t last_level_begin =
+                            (batch_count - current_level_task_count *
+                                               reduce_size * reduce_size) /
+                            (reduce_size - 1);
+                        for (std::size_t j = 0; j < reduce_size; ++j) {
+                            reduce_res[last_level_begin +
+                                       current_level_idx * reduce_size + j]
+                                .get();
+                        }
+                    } else {
+                        for (std::size_t j = 0; j < reduce_size; ++j) {
+                            res[current_level_idx * reduce_size + j].get();
+                        }
+                    }
+                    std::size_t block_length =
+                        batch_count / current_level_task_count * nf;
+                    for (std::size_t j = 1; j < reduce_size; ++j) {
+                        for (std::size_t k = 0; k < nf; ++k) {
+                            buffer[current_level_idx * block_length + k] +=
+                                buffer[current_level_idx * block_length +
+                                       j * block_length / reduce_size + k];
+                        }
+                    }
+                }));
+        }
 
+        reduce_res.back().get();
+        for (std::size_t idx = 0; idx < nf; ++idx) {
+            field[idx] = buffer[idx] * qn_coef[idx];
+        }
+#else
+        for (auto& f : res) { f.get(); }
         for (std::size_t idx = 0; idx < nf; ++idx) { field[idx] = 0; }
         for (std::size_t i = 0; i < batch_count; ++i) {
             for (std::size_t idx = 0; idx < nf; ++idx) {
@@ -224,6 +276,7 @@ struct PIC_State {
         for (std::size_t idx = 0; idx < nf; ++idx) {
             field[idx] *= qn_coef[idx];
         }
+#endif
     }
 
     static decltype(auto) random_gen() {
@@ -255,7 +308,8 @@ struct PIC_State {
             // ---------------------------
             //             ||
             //             ||
-            //          gamma0 now equals the inverse of this coefficient (with
+            //          gamma0 now equals the inverse of this coefficient
+            //          (with
             //              proper normalization)
             gamma0[idx] = 2. * para.length /
                           (marker_num() * (1. + 1. / para.tau - gamma0[idx]) *
