@@ -5,6 +5,28 @@
 
 #include "functions.h"
 using namespace std::literals;
+
+const Parameters& Parameters::generate(const util::json::Value& input) {
+    // Stellarator is the largest derived class
+    alignas(Stellarator) static std::byte buffer[sizeof(Stellarator)];
+    auto para_ptr = reinterpret_cast<Parameters*>(buffer);
+
+    // Parameters and Stellarator are both trivially
+    // destructible, no need to bother calling their
+    // destructors.
+    if (std::string{"tokamak"}.compare(input.at("conf")) == 0) {
+        new (buffer) Parameters(input);
+    } else if (std::string{"stellarator"}.compare(input.at("conf")) == 0) {
+        new (buffer) Stellarator(input);
+    } else if (std::string{"cylinder"}.compare(input.at("conf")) == 0) {
+        new (buffer) Cylinder(input);
+    } else {
+        throw std::runtime_error("Input configuration not supported yet.");
+    }
+
+    return *para_ptr;
+}
+
 Parameters::Parameters(const util::json::Value& input)
     : q(input.at("q")),
       shat(input.at("shat")),

@@ -12,6 +12,7 @@
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
+#include "solver_pic.h"
 
 using namespace util::json;
 
@@ -22,22 +23,8 @@ auto solve_once(auto& input,
     double tol = input["iteration_precision"];
 
     timer.start_timing("initial");
-    alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
-    Parameters* para_ptr = nullptr;
-    // Parameters and Stellarator are both trivially
-    // destructible, no need to bother calling their
-    // destructors.
-    // TODO: use factory method pattern
-    if (!std::string{"tokamak"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Parameters(input);
-    } else if (!std::string{"stellarator"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Stellarator(input);
-    } else if (!std::string{"cylinder"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Cylinder(input);
-    } else {
-        throw std::runtime_error("Input configuration not supported yet.");
-    }
-    auto& para = *para_ptr;
+
+    auto& para = Parameters::generate(input);
 
     auto length = para.length;
     auto npoints = para.npoints;
@@ -85,6 +72,27 @@ auto solve_once(auto& input,
     return single_result;
 }
 
+auto solve_once_pic(const auto& input) {
+    auto& para = Parameters::generate(input);
+    const std::size_t marker_per_cell = 1 << 12;
+    PIC_State<double> state(para, marker_per_cell);
+    Integrator integrator(state);
+
+    const std::size_t time_step = 160;
+    const double dt = 0.25;
+
+    Matrix<std::complex<double>> phi_history(time_step, para.npoints);
+    for (std::size_t idx = 0; idx < time_step; ++idx) {
+        integrator.step(dt);
+        phi_history.setRow(idx, state.current_field());
+        std::cout << idx + 1 << '/' << time_step << '\n';
+    }
+
+    std::ofstream ofs("PIC_phi.bin");
+    ofs.write(reinterpret_cast<char*>(phi_history.data()),
+              sizeof(phi_history(0, 0)) * phi_history.size());
+}
+
 auto get_scan_generator(const auto& para) {
     static double head, step, right_tail, left_tail, current, current_tail;
     static bool to_left, is_first;
@@ -129,6 +137,10 @@ auto filter_input(const auto& input_all) {
 }
 
 int main() {
+    std::string filename = "input.json";
+    auto input = util::json::parse_file(filename);
+    solve_once_pic(filter_input(input));
+#if 0
     auto& timer = Timer::get_timer();
     timer.start_timing("All");
     using namespace std::string_literals;
@@ -251,6 +263,6 @@ int main() {
     std::cout << '\n';
     timer.print();
     std::cout << '\n';
-
+#endif
     return 0;
 }
