@@ -47,10 +47,10 @@ Parameters::Parameters(const util::json::Value& input)
       integration_iteration_limit(input.at("integration_iteration_limit")),
       integration_start_points(input.at("integration_start_points")),
       arc_coeff(input.at("arc_coeff")),
-      water_bag_weight_vpara(input.at("water_bag_weight_vpara")),
-      water_bag_weight_vperp(input.at("water_bag_weight_vperp")),
       alpha(q * q * R * beta_e / (epsilon_n * R) *
             ((1 + eta_e) + 1 / tau * (1 + eta_i))),
+      water_bag_weight_vpara(input.at("water_bag_weight_vpara")),
+      water_bag_weight_vperp(input.at("water_bag_weight_vperp")),
       omega_s_i(-(std::sqrt(b_theta) * vt) / (epsilon_n * R)),
       omega_s_e(-tau * omega_s_i),
       omega_d_bar(2.0 * epsilon_n * omega_s_i) {}

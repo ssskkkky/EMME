@@ -21,6 +21,12 @@ struct PIC_State {
         const value_type v_para;
         const value_type v_perp;
         complex_type w;
+
+        Marker& operator=(const Marker& other) {
+            eta = other.eta;
+            w = other.w;
+            return *this;
+        }
     };
 
     struct MarkerExtra {
@@ -29,6 +35,12 @@ struct PIC_State {
         value_type p_weight;
         value_type bessel_j0;
         complex_type drift_center_pull_back;
+
+        MarkerExtra& operator=(const MarkerExtra& other) {
+            bessel_j0 = other.bessel_j0;
+            drift_center_pull_back = other.drift_center_pull_back;
+            return *this;
+        }
     };
 
     using marker_container_type = std::vector<Marker>;
@@ -51,6 +63,13 @@ struct PIC_State {
           marker_extras(initialize_marker_extras()),
           qn_coef(cal_qn_coef()),
           field(initialize_field(para.npoints)) {}
+
+    PIC_State& operator=(const PIC_State& other) {
+        markers = other.markers;
+        marker_extras = other.marker_extras;
+        field = other.field;
+        return *this;
+    }
 
     inline auto initial_velocity_storage() const {
         return velocity_type(marker_num());
@@ -110,6 +129,17 @@ struct PIC_State {
         }
 
         solve_field();
+    }
+
+    template <typename U>
+    auto get_update_err(U&& velocity, value_type dt) {
+        value_type err{};
+        value_type total{};
+        for (std::size_t i = 0; i < field.size(); ++i) {
+            err += std::real(velocity[i] * dt * std::conj(velocity[i] * dt));
+            total += std::real(markers[i].w * std::conj(markers[i].w));
+        }
+        return std::sqrt(err / total);
     }
 
     // properties
