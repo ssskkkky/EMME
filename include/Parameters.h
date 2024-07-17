@@ -32,6 +32,8 @@ struct Parameters {
     int integration_start_points;
     double arc_coeff;
     double alpha;
+    double water_bag_weight_vpara;
+    double water_bag_weight_vperp;
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor

@@ -26,6 +26,7 @@ struct PIC_State {
     struct MarkerExtra {
         const value_type velocity_dependence_of_magnetic_drift_frequency;
         const value_type diamagnetic_drift_frequency;
+        value_type p_weight;
         value_type bessel_j0;
         complex_type drift_center_pull_back;
     };
@@ -79,8 +80,9 @@ struct PIC_State {
                      cell_w * (field[(cell_idx + 2) % nf] - field[cell_idx])) /
                     (2. * cell_width);
 
-                const auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
-                vs[i] = std::conj(dc_pb) *
+                const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
+                    marker_extras[i];
+                vs[i] = p_weight * std::conj(dc_pb) *
                         (complex_type{0., 1.} *
                              (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
                          v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
@@ -128,13 +130,16 @@ struct PIC_State {
         std::uniform_real_distribution<value_type> uniform_eta(-para.length,
                                                                para.length);
         std::uniform_real_distribution<value_type> uniform_w(0, 0.001);
-        std::normal_distribution<value_type> normal(0, para.vt);
+        std::normal_distribution<value_type> normal_vpara(
+            0, para.vt / std::sqrt(para.water_bag_weight_vpara));
+        std::normal_distribution<value_type> normal_vperp(
+            0, para.vt / std::sqrt(para.water_bag_weight_vperp));
         std::chi_squared_distribution<value_type> chi(2);
 
         for (std::size_t idx = 0; idx < n; ++idx) {
             initial_markers.push_back({.eta = uniform_eta(gen),
-                                       .v_para = normal(gen),
-                                       .v_perp = para.vt * std::sqrt(chi(gen)),
+                                       .v_para = normal_vpara(gen),
+                                       .v_perp = std::abs(normal_vperp(gen)),
                                        .w = uniform_w(gen)});
         }
 
@@ -152,8 +157,25 @@ struct PIC_State {
                      para.omega_s_i *
                      (1. + para.eta_i * ((v_para * v_para + v_perp * v_perp) /
                                              (2. * para.vt * para.vt) -
-                                         1.5))});
+                                         1.5)),
+                 // p_weight=Fm/g
+                 .p_weight =
+                     v_perp *
+                     std::exp(
+                         -(v_para * v_para * (1 - para.water_bag_weight_vpara) +
+                           v_perp * v_perp *
+			   (1 - para.water_bag_weight_vperp))/(2*para.vt*para.vt))});
         }
+
+        value_type sum = 0;
+        for (const auto& ele : initial_extrasa) { sum += ele.p_weight; }
+
+        auto inn = 2 * para.length / (sum);
+        for (auto& ele : initial_extrasa) {
+            // p_weight=Fm/g
+            ele.p_weight = ele.p_weight * inn;
+        }
+
         return initial_extrasa;
     }
     auto initialize_field(std::size_t n) {
@@ -184,7 +206,8 @@ struct PIC_State {
             }
             for (std::size_t i = begin; i < end; ++i) {
                 const auto& [eta, v_para, v_perp, w] = markers[i];
-                auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
+                auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
+                    marker_extras[i];
 
                 const auto x_perp = v_perp / para.vt;
                 const auto sb = std::sqrt(para.b_theta *
@@ -304,9 +327,8 @@ struct PIC_State {
             //          gamma0 now equals the inverse of this coefficient
             //          (with
             //              proper normalization)
-            gamma0[idx] = 2. * para.length /
-                          (marker_num() * (1. + 1. / para.tau - gamma0[idx]) *
-                           cell_width);
+            gamma0[idx] =
+                1. / ((1. + 1. / para.tau - gamma0[idx]) * cell_width);
         }
         return gamma0;
     }

@@ -18,11 +18,13 @@
     "integration_precision":1.e-6,
     "integration_accuracy":1.e-6,
     "integration_iteration_limit":100,
-    "_comment on integration_starat_points":"This should be 15 or 31 for now",
     "integration_start_points":15,
     "arc_coeff":100.0,
     "output":"trunc",
-    "iteration_precision":1.e-6
-
+    "iteration_precision":1.e-6;
+    "water_bag_weight_vpara":1.0,
+    "water_bag_weight_vperp":1.0,
+    "_comment on integration_starat_points":"Should be 15 or 31 for now",
+    "_comment on water_bag_weight":"1 means marker=Fm; 0 means water bag however it won't work since 1/0; \infinity means delta distribution in vpara A value bigger than 2 doesn't work well"
 }
                            
