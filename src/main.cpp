@@ -280,7 +280,11 @@ int main() {
                                                 std::ios::binary);
                 auto single_result =
                     invoke_solver(input, omega, eigen_matrix_file);
-                single_result["eigenMatrix"] = eigen_matrix_file_name;
+                single_result["eigenMatrix"] =
+                    eigen_matrix_file
+                        ? eigen_matrix_file_name
+                        : "Can not open '" + eigen_matrix_file_name +
+                              "' for write.";
                 single_result["scan_value"] = scan_value;
                 scan_result_array.as_array().push_back(
                     std::move(single_result));
