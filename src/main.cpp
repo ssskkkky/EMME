@@ -75,6 +75,9 @@ auto solve_once_eigen(const auto& input,
 auto solve_once_pic(const auto& input,
                     auto&,
                     std::ofstream& eigen_matrix_file) {
+    auto& timer = Timer::get_timer();
+    timer.start_timing("Initial");
+
     auto& para = Parameters::generate(input);
     const std::size_t marker_per_cell = 1 << 12;
     PIC_State<double> state(para, marker_per_cell);
@@ -86,10 +89,12 @@ auto solve_once_pic(const auto& input,
     std::vector<std::array<double, 3>> stats;
     stats.reserve(nt);
 
+    timer.pause_timing("Initial");
     for (std::size_t idx = 0; idx < nt; ++idx) {
         integrator.step(dt);
 
         // diagnostics
+        timer.start_timing("Diagnostics");
         const auto& current_field = state.current_field();
         const auto nf = current_field.size();
         eigen_matrix_file.write(
@@ -105,6 +110,7 @@ auto solve_once_pic(const auto& input,
             });
         stats.push_back({real / nf, imag / nf, std::sqrt(norm / nf)});
         std::cout << "        " << idx + 1 << '/' << nt << '\n';
+        timer.pause_timing("Diagnostics");
     }
 
     auto eigen_value = util::calculate_omega(stats, dt);

@@ -11,6 +11,7 @@
 #include "Arithmetics.h"
 #include "DedicatedThreadPool.h"
 #include "Parameters.h"
+#include "Timer.h"
 
 template <typename T>
 struct PIC_State {
@@ -109,6 +110,8 @@ struct PIC_State {
             }
         };
 
+        auto& timer = Timer::get_timer();
+        timer.start_timing("Particle Pushing");
         constexpr std::size_t block_size = 512;
         std::vector<std::future<void>> res;
         for (std::size_t i = 0; i < marker_num() / block_size; ++i) {
@@ -119,17 +122,23 @@ struct PIC_State {
 
         cal_velocity(marker_num() / block_size * block_size, marker_num());
         for (auto& f : res) { f.get(); }
+        timer.pause_timing("Particle Pushing");
     }
 
     template <typename U>
     void update(U&& velocity, value_type dt) {
+        auto& timer = Timer::get_timer();
+        timer.start_timing("Particle Pushing");
         for (std::size_t i = 0; i < marker_num(); ++i) {
             auto& eta = markers[i].eta;
             eta = bound(eta + markers[i].v_para * dt / (para.q * para.R));
             markers[i].w += velocity[i] * dt;
         }
+        timer.pause_timing("Particle Pushing");
 
+        timer.start_timing("Field Solve");
         solve_field();
+        timer.pause_timing("Field Solve");
     }
 
     template <typename U>
