@@ -16,9 +16,9 @@
 
 using namespace util::json;
 
-auto solve_once(const auto& input,
-                auto& omega_initial_guess,
-                std::ofstream& eigen_matrix_file) {
+auto solve_once_eigen(const auto& input,
+                      auto& omega_initial_guess,
+                      std::ofstream& eigen_matrix_file) {
     auto& timer = Timer::get_timer();
     double tol = input.at("iteration_precision");
 
@@ -80,25 +80,41 @@ auto solve_once_pic(const auto& input,
     PIC_State<double> state(para, marker_per_cell);
     Integrator integrator(state);
 
-    const std::size_t n_t = input.at("step_number");
+    const std::size_t nt = input.at("step_number");
     const double dt = input.at("time_step");
 
-    Matrix<std::complex<double>> phi_history(n_t, para.npoints);
-    for (std::size_t idx = 0; idx < n_t; ++idx) {
+    std::vector<std::array<double, 3>> stats;
+    stats.reserve(nt);
+
+    for (std::size_t idx = 0; idx < nt; ++idx) {
         integrator.step(dt);
-        phi_history.setRow(idx, state.current_field());
-        std::cout << idx + 1 << '/' << n_t << '\n';
+
+        // diagnostics
+        const auto& current_field = state.current_field();
+        const auto nf = current_field.size();
+        eigen_matrix_file.write(
+            reinterpret_cast<const char*>(current_field.data()),
+            sizeof(current_field[0]) * nf);
+
+        auto [real, imag, norm] = std::accumulate(
+            current_field.begin(), current_field.end(), std::array<double, 3>{},
+            [](auto acc, const auto& val) {
+                return std::array{acc[0] + std::real(val),
+                                  acc[1] + std::imag(val),
+                                  acc[2] + std::real(val * std::conj(val))};
+            });
+        stats.push_back({real / nf, imag / nf, std::sqrt(norm / nf)});
+        std::cout << "        " << idx + 1 << '/' << nt << '\n';
     }
 
-    std::ofstream ofs("PIC_phi.bin");
-    ofs.write(reinterpret_cast<char*>(phi_history.data()),
-              sizeof(phi_history(0, 0)) * phi_history.size());
+    auto eigen_value = util::calculate_omega(stats, dt);
+    std::cout << "        Eigenvalue: " << eigen_value << '\n';
 
     auto single_result = Value::create_object();
-    // auto& eva = single_result["eigenvalue"] = Value::create_array(2);
+    auto& eva = single_result["eigenvalue"] = Value::create_array(2);
 
-    //  eva[0] = eigen_solver.eigen_value.real();
-    //  eva[1] = eigen_solver.eigen_value.imag();
+    eva[0] = eigen_value.real();
+    eva[1] = eigen_value.imag();
 
     single_result["eigenvector"] =
         Value::create_typed_array(state.current_field());
@@ -156,7 +172,7 @@ int main() {
     auto invoke_solver = [&]<typename... Args>(Args&&... args) {
         std::string method = input_all.at("method");
         if ("eigen" == method) {
-            return solve_once(std::forward<Args>(args)...);
+            return solve_once_eigen(std::forward<Args>(args)...);
         } else if ("PIC" == method) {
             return solve_once_pic(std::forward<Args>(args)...);
         }

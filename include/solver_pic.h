@@ -5,6 +5,7 @@
 #include <complex>
 #include <iostream>
 #include <random>
+#include <ranges>
 #include <vector>
 
 #include "Arithmetics.h"
@@ -148,7 +149,7 @@ struct PIC_State {
 
     // diagnostic
 
-    decltype(auto) current_field() const { return field; }
+    const auto& current_field() const { return field; }
 
    private:
     auto initialize_marker(std::size_t n) {
@@ -189,12 +190,12 @@ struct PIC_State {
                                              (2. * para.vt * para.vt) -
                                          1.5)),
                  // p_weight=Fm/g
-                 .p_weight =
-                     v_perp *
-                     std::exp(
-                         -(v_para * v_para * (1 - para.water_bag_weight_vpara) +
-                           v_perp * v_perp *
-			   (1 - para.water_bag_weight_vperp))/(2*para.vt*para.vt))});
+                 .p_weight = v_perp *
+                             std::exp(-(v_para * v_para *
+                                            (1 - para.water_bag_weight_vpara) +
+                                        v_perp * v_perp *
+                                            (1 - para.water_bag_weight_vperp)) /
+                                      (2 * para.vt * para.vt))});
         }
 
         value_type sum = 0;
@@ -442,5 +443,46 @@ struct Integrator {
          {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
          {1., 0.13686116839369, -1.1368611683937}}};
 };
+
+namespace util {
+
+auto calculate_omega(const auto& stats, auto dt) {
+    std::size_t n = stats.size() / 2;
+    // take the second half of log of norm
+    auto norm_log_view =
+        stats | std::views::drop(n) | std::views::elements<2> |
+        std::views::transform([](auto v) { return std::log(v); });
+    double t = 0;
+    auto [weighted_sum, sum] = std::accumulate(
+        norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
+        [&t, dt](auto acc, auto val) mutable {
+            auto [weighted_sum, sum] = acc;
+            t += dt;
+            return std::make_pair(weighted_sum + val * t, sum + val);
+        });
+    auto gamma = 6 * (2 * weighted_sum - dt * sum * (n + 1)) /
+                 (dt * dt * n * (n * n - 1));
+    std::vector<double> max_pts;
+    auto real_log_view =
+        stats | std::views::drop(n) | std::views::elements<0> |
+        std::views::transform([](auto v) { return std::log(std::abs(v)); });
+    for (std::size_t i = 1; i < real_log_view.size() - 1; ++i) {
+        if (real_log_view[i] > real_log_view[i - 1] &&
+            real_log_view[i] > real_log_view[i + 1]) {
+            max_pts.push_back(i * dt);
+        }
+    }
+
+    decltype(dt) omega = 0;
+    if (max_pts.size() > 1) {
+        // FIXME: Sign of real frequency is not accounted for properly, consider
+        // using FFT here
+        omega = std::numbers::pi * (max_pts.size() - 1) /
+                (max_pts.back() - max_pts.front());
+    }
+    return std::complex<decltype(dt)>{omega, gamma};
+}
+
+}  // namespace util
 
 #endif  // SOLVER_PIC_H
