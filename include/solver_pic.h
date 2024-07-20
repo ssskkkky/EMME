@@ -22,11 +22,11 @@ struct PIC_State {
         value_type eta;
         const value_type v_para;
         const value_type v_perp;
-        complex_type w;
+        complex_type weight;
 
         Marker& operator=(const Marker& other) {
             eta = other.eta;
-            w = other.w;
+            weight = other.weight;
             return *this;
         }
     };
@@ -36,11 +36,12 @@ struct PIC_State {
         const value_type diamagnetic_drift_frequency;
         value_type p_weight;
         value_type bessel_j0;
-        complex_type drift_center_pull_back;
+        complex_type drift_center_pull_back_operator;
 
         MarkerExtra& operator=(const MarkerExtra& other) {
             bessel_j0 = other.bessel_j0;
-            drift_center_pull_back = other.drift_center_pull_back;
+            drift_center_pull_back_operator =
+                other.drift_center_pull_back_operator;
             return *this;
         }
     };
@@ -49,6 +50,7 @@ struct PIC_State {
     using extra_container_type = std::vector<MarkerExtra>;
     using field_type = std::vector<complex_type>;
 
+    // wrapper class for expression template
     struct velocity_type : util::ExpressionTemplate {
         std::vector<complex_type> data;
 
@@ -63,7 +65,7 @@ struct PIC_State {
           cell_width(2 * para.length / para.npoints),
           markers(initialize_marker(marker_num_per_cell * para.npoints)),
           marker_extras(initialize_marker_extras()),
-          qn_coef(cal_qn_coef()),
+          quasi_neutrality_coef(cal_quasi_neutrality_coef()),
           field(initialize_field(para.npoints)) {}
 
     PIC_State& operator=(const PIC_State& other) {
@@ -132,7 +134,7 @@ struct PIC_State {
         for (std::size_t i = 0; i < marker_num(); ++i) {
             auto& eta = markers[i].eta;
             eta = bound(eta + markers[i].v_para * dt / (para.q * para.R));
-            markers[i].w += velocity[i] * dt;
+            markers[i].weight += velocity[i] * dt;
         }
         timer.pause_timing("Particle Pushing");
 
@@ -145,9 +147,11 @@ struct PIC_State {
     auto get_update_err(U&& velocity, value_type dt) {
         value_type err{};
         value_type total{};
+        // TODO: Find a better way to estimate error
         for (std::size_t i = 0; i < field.size(); ++i) {
             err += std::real(velocity[i] * dt * std::conj(velocity[i] * dt));
-            total += std::real(markers[i].w * std::conj(markers[i].w));
+            total +=
+                std::real(markers[i].weight * std::conj(markers[i].weight));
         }
         return std::sqrt(err / total);
     }
@@ -180,7 +184,7 @@ struct PIC_State {
             initial_markers.push_back({.eta = uniform_eta(gen),
                                        .v_para = normal_vpara(gen),
                                        .v_perp = std::abs(normal_vperp(gen)),
-                                       .w = uniform_w(gen)});
+                                       .weight = uniform_w(gen)});
         }
 
         return initial_markers;
@@ -318,7 +322,7 @@ struct PIC_State {
 
         res.back().get();
         for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] = buffer[idx] * qn_coef[idx];
+            field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
         }
 #else
         for (auto& f : res) { f.get(); }
@@ -330,7 +334,7 @@ struct PIC_State {
         }
 
         for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] *= qn_coef[idx];
+            field[idx] *= quasi_neutrality_coef[idx];
         }
 #endif
     }
@@ -352,9 +356,9 @@ struct PIC_State {
                 para.shat * eta * std::cos(eta));
     }
 
-    inline auto cal_qn_coef() const {
+    inline auto cal_quasi_neutrality_coef() const {
         std::vector<value_type> gamma0(para.npoints);
-        for (std::size_t idx = 0; idx < qn_coef.size(); ++idx) {
+        for (std::size_t idx = 0; idx < quasi_neutrality_coef.size(); ++idx) {
             const auto b =
                 para.b_theta *
                 (1. +
@@ -382,7 +386,7 @@ struct PIC_State {
     const value_type cell_width;
     marker_container_type markers;
     extra_container_type marker_extras;
-    const std::vector<value_type> qn_coef;
+    const std::vector<value_type> quasi_neutrality_coef;
     field_type field;
 };
 
