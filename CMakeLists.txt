@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0)
 project(emme VERSION 1.0.0)
 
 set(CMAKE_CXX_FLAGS "-DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD")
-set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -DEMME_DEBUG")
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -DEMME_DEBUG -fsanitize=address")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
 
 # Find all source files recursively in the "src" directory

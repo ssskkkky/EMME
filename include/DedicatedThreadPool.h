@@ -46,8 +46,8 @@ class DedicatedThreadPool {
         bool try_pop(task_type& task) {
             lock_type lk(deq_mutex);
             if (deq.empty()) { return false; }
-            task = std::move(deq.back());
-            deq.pop_back();
+            task = std::move(deq.front());
+            deq.pop_front();
 #ifdef EMME_TRACE
             ++executed;
 #endif

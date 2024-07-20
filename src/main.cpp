@@ -12,32 +12,19 @@
 #include "functions.h"
 #include "singularity_handler.h"
 #include "solver.h"
+#include "solver_pic.h"
 
 using namespace util::json;
 
-auto solve_once(auto& input,
-                auto& omega_initial_guess,
-                std::ofstream& eigen_matrix_file) {
+auto solve_once_eigen(const auto& input,
+                      auto& omega_initial_guess,
+                      std::ofstream& eigen_matrix_file) {
     auto& timer = Timer::get_timer();
-    double tol = input["iteration_precision"];
+    double tol = input.at("iteration_precision");
 
     timer.start_timing("initial");
-    alignas(Stellarator) std::byte buffer[sizeof(Stellarator)];
-    Parameters* para_ptr = nullptr;
-    // Parameters and Stellarator are both trivially
-    // destructible, no need to bother calling their
-    // destructors.
-    // TODO: use factory method pattern
-    if (!std::string{"tokamak"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Parameters(input);
-    } else if (!std::string{"stellarator"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Stellarator(input);
-    } else if (!std::string{"cylinder"}.compare(input["conf"])) {
-        para_ptr = new (buffer) Cylinder(input);
-    } else {
-        throw std::runtime_error("Input configuration not supported yet.");
-    }
-    auto& para = *para_ptr;
+
+    auto& para = Parameters::generate(input);
 
     auto length = para.length;
     auto npoints = para.npoints;
@@ -85,6 +72,62 @@ auto solve_once(auto& input,
     return single_result;
 }
 
+auto solve_once_pic(const auto& input,
+                    auto&,
+                    std::ofstream& eigen_matrix_file) {
+    auto& timer = Timer::get_timer();
+    timer.start_timing("Initial");
+
+    auto& para = Parameters::generate(input);
+    const std::size_t marker_per_cell = 1 << 12;
+    PIC_State<double> state(para, marker_per_cell);
+    Integrator integrator(state);
+
+    const std::size_t nt = input.at("step_number");
+    const double dt = input.at("time_step");
+
+    std::vector<std::array<double, 3>> stats;
+    stats.reserve(nt);
+
+    timer.pause_timing("Initial");
+    for (std::size_t idx = 0; idx < nt; ++idx) {
+        integrator.step(dt);
+
+        // diagnostics
+        timer.start_timing("Diagnostics");
+        const auto& current_field = state.current_field();
+        const auto nf = current_field.size();
+        eigen_matrix_file.write(
+            reinterpret_cast<const char*>(current_field.data()),
+            sizeof(current_field[0]) * nf);
+
+        auto [real, imag, norm] = std::accumulate(
+            current_field.begin(), current_field.end(), std::array<double, 3>{},
+            [](auto acc, const auto& val) {
+                return std::array{acc[0] + std::real(val),
+                                  acc[1] + std::imag(val),
+                                  acc[2] + std::real(val * std::conj(val))};
+            });
+        stats.push_back({real / nf, imag / nf, std::sqrt(norm / nf)});
+        std::cout << "        " << idx + 1 << '/' << nt << '\n';
+        timer.pause_timing("Diagnostics");
+    }
+
+    auto eigen_value = util::calculate_omega(stats, dt);
+    std::cout << "        Eigenvalue: " << eigen_value << '\n';
+
+    auto single_result = Value::create_object();
+    auto& eva = single_result["eigenvalue"] = Value::create_array(2);
+
+    eva[0] = eigen_value.real();
+    eva[1] = eigen_value.imag();
+
+    single_result["eigenvector"] =
+        Value::create_typed_array(state.current_field());
+
+    return single_result;
+}
+
 auto get_scan_generator(const auto& para) {
     static double head, step, right_tail, left_tail, current, current_tail;
     static bool to_left, is_first;
@@ -129,14 +172,27 @@ auto filter_input(const auto& input_all) {
 }
 
 int main() {
+    std::string filename = "input.json";
+    auto input_all = util::json::parse_file(filename);
+
+    auto invoke_solver = [&]<typename... Args>(Args&&... args) {
+        std::string method = input_all.at("method");
+        if ("eigen" == method) {
+            return solve_once_eigen(std::forward<Args>(args)...);
+        } else if ("PIC" == method) {
+            return solve_once_pic(std::forward<Args>(args)...);
+        }
+        std::ostringstream oss;
+        oss << "Method '" << input_all.at("method").as_string()
+            << "' is not supported, yet.\n";
+        throw std::runtime_error(oss.str());
+    };
+
     auto& timer = Timer::get_timer();
     timer.start_timing("All");
-    using namespace std::string_literals;
 
-    std::string filename = "input.json";
     std::string output_filename = "output.json";
 
-    auto input_all = util::json::parse_file(filename);
     auto input = input_all.clone();
     std::complex<double> omega_initial_guess(input["initial_guess"][0],
                                              input["initial_guess"][1]);
@@ -193,7 +249,7 @@ int main() {
                                         std::ios::binary);
 
         scan_result_array.as_array().push_back(
-            solve_once(input_all, omega_initial_guess, eigen_matrix_file));
+            invoke_solver(input_all, omega_initial_guess, eigen_matrix_file));
         result_object["(None)"] = std::move(result_unit);
     } else {
         auto omega = omega_initial_guess;
@@ -229,8 +285,12 @@ int main() {
                 std::ofstream eigen_matrix_file(eigen_matrix_file_name,
                                                 std::ios::binary);
                 auto single_result =
-                    solve_once(input, omega, eigen_matrix_file);
-                single_result["eigenMatrix"] = eigen_matrix_file_name;
+                    invoke_solver(input, omega, eigen_matrix_file);
+                single_result["eigenMatrix"] =
+                    eigen_matrix_file
+                        ? eigen_matrix_file_name
+                        : "Can not open '" + eigen_matrix_file_name +
+                              "' for write.";
                 single_result["scan_value"] = scan_value;
                 scan_result_array.as_array().push_back(
                     std::move(single_result));

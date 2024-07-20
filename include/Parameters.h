@@ -9,8 +9,7 @@
 // Structure to hold simulation parameters
 struct Parameters {
    public:
-    // Constructor
-    Parameters(const util::json::Value&);
+    static const Parameters& generate(const util::json::Value&);
 
     // Member variables
     double q;
@@ -33,6 +32,8 @@ struct Parameters {
     int integration_start_points;
     double arc_coeff;
     double alpha;
+    double water_bag_weight_vpara;
+    double water_bag_weight_vperp;
 
     // Additional member variables (if needed)
     double omega_s_i;    // Calculated in constructor
@@ -71,25 +72,17 @@ struct Parameters {
                                        double eta_p,
                                        std::complex<double>) const;
 
-   private:
-    // No private member functions needed (assuming this is just a data
-    // structure)
+   protected:
+    // Constructor
+    Parameters(const util::json::Value&);
 
     std::array<std::complex<double>, 5> integration_lambda_arg(
         double eta,
         double eta_p,
         std::complex<double> tau) const;
-
-    /* std::complex<double> lambda_f_tau_term; */
-    /* std::complex<double> arg; */
-    /* std::complex<double> exp_term; */
-    /* std::complex<double> bessel_0; */
-    /* std::complex<double> bessel_1; */
 };
 
 struct Stellarator : public Parameters {
-    Stellarator(const util::json::Value&);
-
     double eta_k;
     int lh;
     int mh;
@@ -104,6 +97,11 @@ struct Stellarator : public Parameters {
     double g_integration_f(double eta) const override;
     double sigma_f(double eta) const;
     void parameterInit() override;
+
+    friend Parameters;
+
+   protected:
+    Stellarator(const util::json::Value&);
 };
 
 struct Cylinder : public Parameters {
