@@ -84,7 +84,7 @@ struct PIC_State {
 
         auto cal_velocity = [this, &vs](std::size_t begin, std::size_t end) {
             for (std::size_t i = begin; i < end; ++i) {
-                const auto& [eta, v_para, v_perp, w] = markers[i];
+                const auto& [eta, v_para, v_perp, weight] = markers[i];
 
                 const auto x_perp = v_perp / para.vt;
                 const auto sb = std::sqrt(para.b_theta *
@@ -105,9 +105,10 @@ struct PIC_State {
 
                 const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
-                vs[i] = p_weight * std::conj(dc_pb) *
+                vs[i] = p_weight *
                         (complex_type{0., 1.} *
-                             (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
+                             ((omega_st - omega_d(eta) * omega_dv) * j0 * phi -
+                              weight * omega_d(eta) * omega_dv) -
                          v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
             }
         };
@@ -192,7 +193,7 @@ struct PIC_State {
     auto initialize_marker_extras() {
         extra_container_type initial_extrasa;
         initial_extrasa.reserve(marker_num());
-        for (const auto& [eta, v_para, v_perp, w] : markers) {
+        for (const auto& [eta, v_para, v_perp, weight] : markers) {
             initial_extrasa.push_back(
                 {.velocity_dependence_of_magnetic_drift_frequency =
                      (v_para * v_para + .5 * v_perp * v_perp) /
@@ -249,7 +250,7 @@ struct PIC_State {
                 buffer[buffer_begin + i] = 0;
             }
             for (std::size_t i = begin; i < end; ++i) {
-                const auto& [eta, v_para, v_perp, w] = markers[i];
+                const auto& [eta, v_para, v_perp, weight] = markers[i];
                 auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
 
@@ -260,7 +261,7 @@ struct PIC_State {
                 dc_pb = std::exp(complex_type{
                     0., -omega_d_integral(eta, v_para) * omega_dv});
 
-                const auto den = j0 * w * dc_pb;
+                const auto den = j0 * weight;
 
                 const auto [cell_idx, cell_w] = locate(eta);
 
