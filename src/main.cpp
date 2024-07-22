@@ -79,7 +79,7 @@ auto solve_once_pic(const auto& input,
     timer.start_timing("Initial");
 
     auto& para = Parameters::generate(input);
-    const std::size_t marker_per_cell = 1 << 12;
+    const std::size_t marker_per_cell = input.at("marker_per_cell");
     PIC_State<double> state(para, marker_per_cell);
     Integrator integrator(state);
 
@@ -212,7 +212,7 @@ int main() {
 #endif
     result["run_time"] = util::get_date_string();
 
-    // scan_config["key"] = {heaad, step, tail, another_tail};
+    // scan_config["key"] = {head, step, tail, another_tail};
     // another_tail is optional, depending on the input
     std::unordered_map<std::string, std::array<double, 4>> scan_config;
     for (auto& [key, val] : input_all.as_object()) {
