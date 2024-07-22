@@ -5,11 +5,13 @@
 #include <complex>
 #include <iostream>
 #include <random>
+#include <ranges>
 #include <vector>
 
 #include "Arithmetics.h"
 #include "DedicatedThreadPool.h"
 #include "Parameters.h"
+#include "Timer.h"
 
 template <typename T>
 struct PIC_State {
@@ -20,20 +22,35 @@ struct PIC_State {
         value_type eta;
         const value_type v_para;
         const value_type v_perp;
-        complex_type w;
+        complex_type weight;
+
+        Marker& operator=(const Marker& other) {
+            eta = other.eta;
+            weight = other.weight;
+            return *this;
+        }
     };
 
     struct MarkerExtra {
         const value_type velocity_dependence_of_magnetic_drift_frequency;
         const value_type diamagnetic_drift_frequency;
+        value_type p_weight;
         value_type bessel_j0;
-        complex_type drift_center_pull_back;
+        complex_type drift_center_pull_back_operator;
+
+        MarkerExtra& operator=(const MarkerExtra& other) {
+            bessel_j0 = other.bessel_j0;
+            drift_center_pull_back_operator =
+                other.drift_center_pull_back_operator;
+            return *this;
+        }
     };
 
     using marker_container_type = std::vector<Marker>;
     using extra_container_type = std::vector<MarkerExtra>;
     using field_type = std::vector<complex_type>;
 
+    // wrapper class for expression template
     struct velocity_type : util::ExpressionTemplate {
         std::vector<complex_type> data;
 
@@ -48,8 +65,15 @@ struct PIC_State {
           cell_width(2 * para.length / para.npoints),
           markers(initialize_marker(marker_num_per_cell * para.npoints)),
           marker_extras(initialize_marker_extras()),
-          qn_coef(cal_qn_coef()),
+          quasi_neutrality_coef(cal_quasi_neutrality_coef()),
           field(initialize_field(para.npoints)) {}
+
+    PIC_State& operator=(const PIC_State& other) {
+        markers = other.markers;
+        marker_extras = other.marker_extras;
+        field = other.field;
+        return *this;
+    }
 
     inline auto initial_velocity_storage() const {
         return velocity_type(marker_num());
@@ -79,14 +103,17 @@ struct PIC_State {
                      cell_w * (field[(cell_idx + 2) % nf] - field[cell_idx])) /
                     (2. * cell_width);
 
-                const auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
-                vs[i] = std::conj(dc_pb) *
+                const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
+                    marker_extras[i];
+                vs[i] = p_weight * std::conj(dc_pb) *
                         (complex_type{0., 1.} *
                              (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
                          v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
             }
         };
 
+        auto& timer = Timer::get_timer();
+        timer.start_timing("Particle Pushing");
         constexpr std::size_t block_size = 512;
         std::vector<std::future<void>> res;
         for (std::size_t i = 0; i < marker_num() / block_size; ++i) {
@@ -97,17 +124,36 @@ struct PIC_State {
 
         cal_velocity(marker_num() / block_size * block_size, marker_num());
         for (auto& f : res) { f.get(); }
+        timer.pause_timing("Particle Pushing");
     }
 
     template <typename U>
     void update(U&& velocity, value_type dt) {
+        auto& timer = Timer::get_timer();
+        timer.start_timing("Particle Pushing");
         for (std::size_t i = 0; i < marker_num(); ++i) {
             auto& eta = markers[i].eta;
             eta = bound(eta + markers[i].v_para * dt / (para.q * para.R));
-            markers[i].w += velocity[i] * dt;
+            markers[i].weight += velocity[i] * dt;
         }
+        timer.pause_timing("Particle Pushing");
 
+        timer.start_timing("Field Solve");
         solve_field();
+        timer.pause_timing("Field Solve");
+    }
+
+    template <typename U>
+    auto get_update_err(U&& velocity, value_type dt) {
+        value_type err{};
+        value_type total{};
+        // TODO: Find a better way to estimate error
+        for (std::size_t i = 0; i < field.size(); ++i) {
+            err += std::real(velocity[i] * dt * std::conj(velocity[i] * dt));
+            total +=
+                std::real(markers[i].weight * std::conj(markers[i].weight));
+        }
+        return std::sqrt(err / total);
     }
 
     // properties
@@ -116,7 +162,7 @@ struct PIC_State {
 
     // diagnostic
 
-    decltype(auto) current_field() const { return field; }
+    const auto& current_field() const { return field; }
 
    private:
     auto initialize_marker(std::size_t n) {
@@ -128,14 +174,17 @@ struct PIC_State {
         std::uniform_real_distribution<value_type> uniform_eta(-para.length,
                                                                para.length);
         std::uniform_real_distribution<value_type> uniform_w(0, 0.001);
-        std::normal_distribution<value_type> normal(0, para.vt);
+        std::normal_distribution<value_type> normal_vpara(
+            0, para.vt / std::sqrt(para.water_bag_weight_vpara));
+        std::normal_distribution<value_type> normal_vperp(
+            0, para.vt / std::sqrt(para.water_bag_weight_vperp));
         std::chi_squared_distribution<value_type> chi(2);
 
         for (std::size_t idx = 0; idx < n; ++idx) {
             initial_markers.push_back({.eta = uniform_eta(gen),
-                                       .v_para = normal(gen),
-                                       .v_perp = para.vt * std::sqrt(chi(gen)),
-                                       .w = uniform_w(gen)});
+                                       .v_para = normal_vpara(gen),
+                                       .v_perp = std::abs(normal_vperp(gen)),
+                                       .weight = uniform_w(gen)});
         }
 
         return initial_markers;
@@ -152,8 +201,25 @@ struct PIC_State {
                      para.omega_s_i *
                      (1. + para.eta_i * ((v_para * v_para + v_perp * v_perp) /
                                              (2. * para.vt * para.vt) -
-                                         1.5))});
+                                         1.5)),
+                 // p_weight=Fm/g
+                 .p_weight = v_perp *
+                             std::exp(-(v_para * v_para *
+                                            (1 - para.water_bag_weight_vpara) +
+                                        v_perp * v_perp *
+                                            (1 - para.water_bag_weight_vperp)) /
+                                      (2 * para.vt * para.vt))});
         }
+
+        value_type sum = 0;
+        for (const auto& ele : initial_extrasa) { sum += ele.p_weight; }
+
+        auto inn = 2 * para.length / (sum);
+        for (auto& ele : initial_extrasa) {
+            // p_weight=Fm/g
+            ele.p_weight = ele.p_weight * inn;
+        }
+
         return initial_extrasa;
     }
     auto initialize_field(std::size_t n) {
@@ -184,7 +250,8 @@ struct PIC_State {
             }
             for (std::size_t i = begin; i < end; ++i) {
                 const auto& [eta, v_para, v_perp, w] = markers[i];
-                auto& [omega_dv, omega_st, j0, dc_pb] = marker_extras[i];
+                auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
+                    marker_extras[i];
 
                 const auto x_perp = v_perp / para.vt;
                 const auto sb = std::sqrt(para.b_theta *
@@ -255,7 +322,7 @@ struct PIC_State {
 
         res.back().get();
         for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] = buffer[idx] * qn_coef[idx];
+            field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
         }
 #else
         for (auto& f : res) { f.get(); }
@@ -267,7 +334,7 @@ struct PIC_State {
         }
 
         for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] *= qn_coef[idx];
+            field[idx] *= quasi_neutrality_coef[idx];
         }
 #endif
     }
@@ -289,9 +356,9 @@ struct PIC_State {
                 para.shat * eta * std::cos(eta));
     }
 
-    inline auto cal_qn_coef() const {
+    inline auto cal_quasi_neutrality_coef() const {
         std::vector<value_type> gamma0(para.npoints);
-        for (std::size_t idx = 0; idx < qn_coef.size(); ++idx) {
+        for (std::size_t idx = 0; idx < quasi_neutrality_coef.size(); ++idx) {
             const auto b =
                 para.b_theta *
                 (1. +
@@ -304,9 +371,8 @@ struct PIC_State {
             //          gamma0 now equals the inverse of this coefficient
             //          (with
             //              proper normalization)
-            gamma0[idx] = 2. * para.length /
-                          (marker_num() * (1. + 1. / para.tau - gamma0[idx]) *
-                           cell_width);
+            gamma0[idx] =
+                1. / ((1. + 1. / para.tau - gamma0[idx]) * cell_width);
         }
         return gamma0;
     }
@@ -320,7 +386,7 @@ struct PIC_State {
     const value_type cell_width;
     marker_container_type markers;
     extra_container_type marker_extras;
-    const std::vector<value_type> qn_coef;
+    const std::vector<value_type> quasi_neutrality_coef;
     field_type field;
 };
 
@@ -390,5 +456,46 @@ struct Integrator {
          {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
          {1., 0.13686116839369, -1.1368611683937}}};
 };
+
+namespace util {
+
+auto calculate_omega(const auto& stats, auto dt) {
+    std::size_t n = stats.size() / 2;
+    // take the second half of log of norm
+    auto norm_log_view =
+        stats | std::views::drop(n) | std::views::elements<2> |
+        std::views::transform([](auto v) { return std::log(v); });
+    double t = 0;
+    auto [weighted_sum, sum] = std::accumulate(
+        norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
+        [&t, dt](auto acc, auto val) mutable {
+            auto [weighted_sum, sum] = acc;
+            t += dt;
+            return std::make_pair(weighted_sum + val * t, sum + val);
+        });
+    auto gamma = 6 * (2 * weighted_sum - dt * sum * (n + 1)) /
+                 (dt * dt * n * (n * n - 1));
+    std::vector<double> max_pts;
+    auto real_log_view =
+        stats | std::views::drop(n) | std::views::elements<0> |
+        std::views::transform([](auto v) { return std::log(std::abs(v)); });
+    for (std::size_t i = 1; i < real_log_view.size() - 1; ++i) {
+        if (real_log_view[i] > real_log_view[i - 1] &&
+            real_log_view[i] > real_log_view[i + 1]) {
+            max_pts.push_back(i * dt);
+        }
+    }
+
+    decltype(dt) omega = 0;
+    if (max_pts.size() > 1) {
+        // FIXME: Sign of real frequency is not accounted for properly, consider
+        // using FFT here
+        omega = std::numbers::pi * (max_pts.size() - 1) /
+                (max_pts.back() - max_pts.front());
+    }
+    return std::complex<decltype(dt)>{omega, gamma};
+}
+
+}  // namespace util
 
 #endif  // SOLVER_PIC_H
