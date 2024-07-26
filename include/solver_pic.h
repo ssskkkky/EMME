@@ -66,7 +66,9 @@ struct PIC_State {
           markers(initialize_marker(marker_num_per_cell * para.npoints)),
           marker_extras(initialize_marker_extras()),
           quasi_neutrality_coef(cal_quasi_neutrality_coef()),
-          field(initialize_field(para.npoints)) {}
+          field(initialize_field(para.npoints)),
+          drift_center_transformation_switch(
+              para.drift_center_transformation_switch) {}
 
     PIC_State& operator=(const PIC_State& other) {
         markers = other.markers;
@@ -105,11 +107,22 @@ struct PIC_State {
 
                 const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
-                vs[i] = p_weight *
+                if (drift_center_transformation_switch) {
+                    vs[i] =
+                        p_weight * std::conj(dc_pb) *
                         (complex_type{0., 1.} *
-                             ((omega_st - omega_d(eta) * omega_dv) * j0 * phi -
-                              weight * omega_d(eta) * omega_dv) -
+                             ((omega_st - omega_d(eta) * omega_dv) * j0 * phi) -
                          v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
+                } else {
+                    vs[i] =
+                        -weight * omega_d(eta) * omega_dv *
+                            complex_type{0., 1.} +
+                        p_weight * (complex_type{0., 1.} *
+                                        ((omega_st - omega_d(eta) * omega_dv) *
+                                         j0 * phi) -
+                                    v_para / (para.q * para.R) *
+                                        (j0 * dphi + dj0 * phi));
+                }
             }
         };
 
@@ -261,7 +274,9 @@ struct PIC_State {
                 dc_pb = std::exp(complex_type{
                     0., -omega_d_integral(eta, v_para) * omega_dv});
 
-                const auto den = j0 * weight;
+                const auto den = drift_center_transformation_switch
+                                     ? j0 * weight * dc_pb
+                                     : j0 * weight;
 
                 const auto [cell_idx, cell_w] = locate(eta);
 
@@ -285,46 +300,46 @@ struct PIC_State {
             }));
         }
 #if 0
-        constexpr std::size_t reduce_size =
-            4;  // batch_count should be a power of this number
-        // std::vector<std::future<void>> reduce_res;
-        // NOTE: Reservation is necessary here since I do not lock this vector
-        // when visiting it in other threads
-        res.reserve((batch_count * reduce_size - 1) / (reduce_size - 1));
-        for (std::size_t i = 0, current_level_idx = 0,
-                         current_level_task_count = batch_count / reduce_size;
-             i < (batch_count - 1) / (reduce_size - 1);
-             ++i, ++current_level_idx) {
-            if (current_level_idx == current_level_task_count) {
-                current_level_task_count /= reduce_size;
-                current_level_idx = 0;
-            }
-            res.push_back(thread_pool.queue_task([&, current_level_idx,
-                                                  current_level_task_count]() {
-                // wait for previous tasks
-                std::size_t last_level_begin =
-                    (batch_count - current_level_task_count * reduce_size) *
-                    reduce_size / (reduce_size - 1);
-                for (std::size_t j = 0; j < reduce_size; ++j) {
-                    res[last_level_begin + current_level_idx * reduce_size + j]
-                        .get();
-                }
-                std::size_t block_length =
-                    batch_count / current_level_task_count * nf;
-                for (std::size_t j = 1; j < reduce_size; ++j) {
-                    for (std::size_t k = 0; k < nf; ++k) {
-                        buffer[current_level_idx * block_length + k] +=
-                            buffer[current_level_idx * block_length +
-                                   j * block_length / reduce_size + k];
-                    }
-                }
-            }));
-        }
+    constexpr std::size_t reduce_size =
+      4;  // batch_count should be a power of this number
+    // std::vector<std::future<void>> reduce_res;
+    // NOTE: Reservation is necessary here since I do not lock this vector
+    // when visiting it in other threads
+    res.reserve((batch_count * reduce_size - 1) / (reduce_size - 1));
+    for (std::size_t i = 0, current_level_idx = 0,
+	   current_level_task_count = batch_count / reduce_size;
+	 i < (batch_count - 1) / (reduce_size - 1);
+	 ++i, ++current_level_idx) {
+      if (current_level_idx == current_level_task_count) {
+	current_level_task_count /= reduce_size;
+	current_level_idx = 0;
+      }
+      res.push_back(thread_pool.queue_task([&, current_level_idx,
+					    current_level_task_count]() {
+	// wait for previous tasks
+	std::size_t last_level_begin =
+	  (batch_count - current_level_task_count * reduce_size) *
+	  reduce_size / (reduce_size - 1);
+	for (std::size_t j = 0; j < reduce_size; ++j) {
+	  res[last_level_begin + current_level_idx * reduce_size + j]
+	    .get();
+	}
+	std::size_t block_length =
+	  batch_count / current_level_task_count * nf;
+	for (std::size_t j = 1; j < reduce_size; ++j) {
+	  for (std::size_t k = 0; k < nf; ++k) {
+	    buffer[current_level_idx * block_length + k] +=
+	      buffer[current_level_idx * block_length +
+		     j * block_length / reduce_size + k];
+	  }
+	}
+      }));
+    }
 
-        res.back().get();
-        for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
-        }
+    res.back().get();
+    for (std::size_t idx = 0; idx < nf; ++idx) {
+      field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
+    }
 #else
         for (auto& f : res) { f.get(); }
         for (std::size_t idx = 0; idx < nf; ++idx) { field[idx] = 0; }
@@ -389,113 +404,114 @@ struct PIC_State {
     extra_container_type marker_extras;
     const std::vector<value_type> quasi_neutrality_coef;
     field_type field;
+    bool drift_center_transformation_switch;
 };
 
 template <typename T>
 struct Integrator {
-    using state_type = T;
-    using value_type = typename state_type::value_type;
-    using velocity_type = typename state_type::velocity_type;
-    static constexpr std::size_t order = 3;
+  using state_type = T;
+  using value_type = typename state_type::value_type;
+  using velocity_type = typename state_type::velocity_type;
+  static constexpr std::size_t order = 3;
 
-    Integrator(state_type& initial_state,
-               value_type upper_err_bound = 1.e-7,
-               value_type lower_err_bound = 1.e-10)
-        : current_dt(0.1),
-          state(initial_state),
-          upper_err_bound_(upper_err_bound),
-          lower_err_bound_(lower_err_bound),
-          intermediates(([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
-              return std::array<velocity_type, order>{
-                  ((void)p_idx, state.initial_velocity_storage())...};
+  Integrator(state_type& initial_state,
+	     value_type upper_err_bound = 1.e-7,
+	     value_type lower_err_bound = 1.e-10)
+    : current_dt(0.1),
+      state(initial_state),
+      upper_err_bound_(upper_err_bound),
+      lower_err_bound_(lower_err_bound),
+      intermediates(([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
+	    return std::array<velocity_type, order>{
+	      ((void)p_idx, state.initial_velocity_storage())...};
           })(std::make_index_sequence<order>{})) {}
 
-    void step(value_type dt) {
-        ([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
-            (([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
-                 constexpr auto p = p_idx;
-                 state.put_velocity(intermediates[p]);
-                 state.update((... + (coef[p][k_idx] * intermediates[k_idx])),
-                              coef[p][p + 1] * dt);
-             })(std::make_index_sequence<p_idx + 1>{}),
-             ...);
-        })(std::make_index_sequence<order>{});
+  void step(value_type dt) {
+    ([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
+      (([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
+	  constexpr auto p = p_idx;
+	  state.put_velocity(intermediates[p]);
+	  state.update((... + (coef[p][k_idx] * intermediates[k_idx])),
+		       coef[p][p + 1] * dt);
+	})(std::make_index_sequence<p_idx + 1>{}),
+	...);
+    })(std::make_index_sequence<order>{});
+  }
+
+  auto step_adaptive() {
+    auto state_current = state;
+
+    value_type err{};
+    while (true) {
+      step(current_dt);
+      err = ([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
+	  return state.get_update_err(
+				      (... + (coef[order][k_idx] * intermediates[k_idx])),
+				      current_dt);
+	})(std::make_index_sequence<3>{});
+      if (err < upper_err_bound_) { break; }
+      current_dt *= .5;
+      state = state_current;
     }
 
-    auto step_adaptive() {
-        auto state_current = state;
+    auto step_dt = current_dt;
+    if (err < lower_err_bound_) { current_dt *= 2.; }
 
-        value_type err{};
-        while (true) {
-            step(current_dt);
-            err = ([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
-                return state.get_update_err(
-                    (... + (coef[order][k_idx] * intermediates[k_idx])),
-                    current_dt);
-            })(std::make_index_sequence<3>{});
-            if (err < upper_err_bound_) { break; }
-            current_dt *= .5;
-            state = state_current;
-        }
+    return step_dt;
+  }
 
-        auto step_dt = current_dt;
-        if (err < lower_err_bound_) { current_dt *= 2.; }
+private:
+  value_type current_dt;
+  state_type& state;
+  value_type upper_err_bound_;
+  value_type lower_err_bound_;
+  std::array<velocity_type, 3> intermediates;
 
-        return step_dt;
-    }
-
-   private:
-    value_type current_dt;
-    state_type& state;
-    value_type upper_err_bound_;
-    value_type lower_err_bound_;
-    std::array<velocity_type, 3> intermediates;
-
-    static inline constexpr std::array<std::array<double, 4>, 4> coef{
-        {{1, 0.62653829327080},
-         {0, 1, -0.55111240553326},
-         {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
-         {1., 0.13686116839369, -1.1368611683937}}};
+  static inline constexpr std::array<std::array<double, 4>, 4> coef{
+    {{1, 0.62653829327080},
+     {0, 1, -0.55111240553326},
+     {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
+     {1., 0.13686116839369, -1.1368611683937}}};
 };
 
 namespace util {
 
-auto calculate_omega(const auto& stats, auto dt) {
+  auto calculate_omega(const auto& stats, auto dt) {
     std::size_t n = stats.size() / 2;
     // take the second half of log of norm
     auto norm_log_view =
-        stats | std::views::drop(n) | std::views::elements<2> |
-        std::views::transform([](auto v) { return std::log(v); });
+      stats | std::views::drop(n) | std::views::elements<2> |
+      std::views::transform([](auto v) { return std::log(v); });
     double t = 0;
     auto [weighted_sum, sum] = std::accumulate(
-        norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
-        [&t, dt](auto acc, auto val) mutable {
-            auto [weighted_sum, sum] = acc;
-            t += dt;
-            return std::make_pair(weighted_sum + val * t, sum + val);
-        });
+					       norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
+					       [&t, dt](auto acc, auto val) mutable {
+						 auto [weighted_sum, sum] = acc;
+						 t += dt;
+						 return std::make_pair(weighted_sum + val * t, sum + val);
+					       });
     auto gamma = 6 * (2 * weighted_sum - dt * sum * (n + 1)) /
-                 (dt * dt * n * (n * n - 1));
+      (dt * dt * n * (n * n - 1));
     std::vector<double> max_pts;
     auto real_log_view =
-        stats | std::views::drop(n) | std::views::elements<0> |
-        std::views::transform([](auto v) { return std::log(std::abs(v)); });
+      stats | std::views::drop(n) | std::views::elements<0> |
+      std::views::transform([](auto v) { return std::log(std::abs(v)); });
     for (std::size_t i = 1; i < real_log_view.size() - 1; ++i) {
-        if (real_log_view[i] > real_log_view[i - 1] &&
-            real_log_view[i] > real_log_view[i + 1]) {
-            max_pts.push_back(i * dt);
-        }
+      if (real_log_view[i] > real_log_view[i - 1] &&
+	  real_log_view[i] > real_log_view[i + 1]) {
+	max_pts.push_back(i * dt);
+      }
     }
 
     decltype(dt) omega = 0;
     if (max_pts.size() > 1) {
-        // FIXME: Sign of real frequency is not accounted for properly, consider
-        // using FFT here
-        omega = std::numbers::pi * (max_pts.size() - 1) /
-                (max_pts.back() - max_pts.front());
+      // FIXME: Sign of real frequency is not accounted for properly, consider
+      // using FFT here
+      omega = std::numbers::pi * (max_pts.size() - 1) /
+	(max_pts.back() - max_pts.front());
     }
     return std::complex<decltype(dt)>{omega, gamma};
-}
+  }
 
 }  // namespace util
 
