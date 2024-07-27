@@ -66,9 +66,7 @@ struct PIC_State {
           markers(initialize_marker(marker_num_per_cell * para.npoints)),
           marker_extras(initialize_marker_extras()),
           quasi_neutrality_coef(cal_quasi_neutrality_coef()),
-          field(initialize_field(para.npoints)),
-          drift_center_transformation_switch(
-              para.drift_center_transformation_switch) {}
+          field(initialize_field(para.npoints)) {}
 
     PIC_State& operator=(const PIC_State& other) {
         markers = other.markers;
@@ -107,7 +105,7 @@ struct PIC_State {
 
                 const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
-                if (drift_center_transformation_switch) {
+                if (para.drift_center_transformation_switch) {
                     vs[i] =
                         p_weight * std::conj(dc_pb) *
                         (complex_type{0., 1.} *
@@ -274,7 +272,7 @@ struct PIC_State {
                 dc_pb = std::exp(complex_type{
                     0., -omega_d_integral(eta, v_para) * omega_dv});
 
-                const auto den = drift_center_transformation_switch
+                const auto den = para.drift_center_transformation_switch
                                      ? j0 * weight * dc_pb
                                      : j0 * weight;
 
@@ -404,74 +402,73 @@ struct PIC_State {
     extra_container_type marker_extras;
     const std::vector<value_type> quasi_neutrality_coef;
     field_type field;
-    bool drift_center_transformation_switch;
 };
 
 template <typename T>
 struct Integrator {
-  using state_type = T;
-  using value_type = typename state_type::value_type;
-  using velocity_type = typename state_type::velocity_type;
-  static constexpr std::size_t order = 3;
+    using state_type = T;
+    using value_type = typename state_type::value_type;
+    using velocity_type = typename state_type::velocity_type;
+    static constexpr std::size_t order = 3;
 
-  Integrator(state_type& initial_state,
-	     value_type upper_err_bound = 1.e-7,
-	     value_type lower_err_bound = 1.e-10)
-    : current_dt(0.1),
-      state(initial_state),
-      upper_err_bound_(upper_err_bound),
-      lower_err_bound_(lower_err_bound),
-      intermediates(([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
-	    return std::array<velocity_type, order>{
-	      ((void)p_idx, state.initial_velocity_storage())...};
+    Integrator(state_type& initial_state,
+               value_type upper_err_bound = 1.e-7,
+               value_type lower_err_bound = 1.e-10)
+        : current_dt(0.1),
+          state(initial_state),
+          upper_err_bound_(upper_err_bound),
+          lower_err_bound_(lower_err_bound),
+          intermediates(([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
+              return std::array<velocity_type, order>{
+                  ((void)p_idx, state.initial_velocity_storage())...};
           })(std::make_index_sequence<order>{})) {}
 
-  void step(value_type dt) {
-    ([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
-      (([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
-	  constexpr auto p = p_idx;
-	  state.put_velocity(intermediates[p]);
-	  state.update((... + (coef[p][k_idx] * intermediates[k_idx])),
-		       coef[p][p + 1] * dt);
-	})(std::make_index_sequence<p_idx + 1>{}),
-	...);
-    })(std::make_index_sequence<order>{});
-  }
-
-  auto step_adaptive() {
-    auto state_current = state;
-
-    value_type err{};
-    while (true) {
-      step(current_dt);
-      err = ([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
-	  return state.get_update_err(
-				      (... + (coef[order][k_idx] * intermediates[k_idx])),
-				      current_dt);
-	})(std::make_index_sequence<3>{});
-      if (err < upper_err_bound_) { break; }
-      current_dt *= .5;
-      state = state_current;
+    void step(value_type dt) {
+        ([&]<auto... p_idx>(std::index_sequence<p_idx...>) {
+            (([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
+                 constexpr auto p = p_idx;
+                 state.put_velocity(intermediates[p]);
+                 state.update((... + (coef[p][k_idx] * intermediates[k_idx])),
+                              coef[p][p + 1] * dt);
+             })(std::make_index_sequence<p_idx + 1>{}),
+             ...);
+        })(std::make_index_sequence<order>{});
     }
 
-    auto step_dt = current_dt;
-    if (err < lower_err_bound_) { current_dt *= 2.; }
+    auto step_adaptive() {
+        auto state_current = state;
 
-    return step_dt;
-  }
+        value_type err{};
+        while (true) {
+            step(current_dt);
+            err = ([&]<auto... k_idx>(std::index_sequence<k_idx...>) {
+                return state.get_update_err(
+                    (... + (coef[order][k_idx] * intermediates[k_idx])),
+                    current_dt);
+            })(std::make_index_sequence<3>{});
+            if (err < upper_err_bound_) { break; }
+            current_dt *= .5;
+            state = state_current;
+        }
 
-private:
-  value_type current_dt;
-  state_type& state;
-  value_type upper_err_bound_;
-  value_type lower_err_bound_;
-  std::array<velocity_type, 3> intermediates;
+        auto step_dt = current_dt;
+        if (err < lower_err_bound_) { current_dt *= 2.; }
 
-  static inline constexpr std::array<std::array<double, 4>, 4> coef{
-    {{1, 0.62653829327080},
-     {0, 1, -0.55111240553326},
-     {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
-     {1., 0.13686116839369, -1.1368611683937}}};
+        return step_dt;
+    }
+
+   private:
+    value_type current_dt;
+    state_type& state;
+    value_type upper_err_bound_;
+    value_type lower_err_bound_;
+    std::array<velocity_type, 3> intermediates;
+
+    static inline constexpr std::array<std::array<double, 4>, 4> coef{
+        {{1, 0.62653829327080},
+         {0, 1, -0.55111240553326},
+         {0, 1.5220585509963, -0.52205855099628, 0.92457411226246},
+         {1., 0.13686116839369, -1.1368611683937}}};
 };
 
 namespace util {
