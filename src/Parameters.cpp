@@ -53,7 +53,9 @@ Parameters::Parameters(const util::json::Value& input)
       water_bag_weight_vperp(input.at("water_bag_weight_vperp")),
       omega_s_i(-(std::sqrt(b_theta) * vt) / (epsilon_n * R)),
       omega_s_e(-tau * omega_s_i),
-      omega_d_bar(2.0 * epsilon_n * omega_s_i) {}
+      omega_d_bar(2.0 * epsilon_n * omega_s_i),
+      drift_center_transformation_switch(
+          input.at("drift_center_transformation_switch")) {}
 
 void Parameters::parameterInit() {
     alpha = q * q * R * beta_e / (epsilon_n * R) *

@@ -39,6 +39,7 @@ struct Parameters {
     double omega_s_i;    // Calculated in constructor
     double omega_s_e;    // Calculated in constructor
     double omega_d_bar;  // Calculated in constructor
+    bool drift_center_transformation_switch;
     virtual void parameterInit();
     virtual double g_integration_f(double eta) const;
     double beta_1(double eta, double eta_p) const;

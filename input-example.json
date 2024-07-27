@@ -28,6 +28,7 @@
   "step_number": 180,
   "time_step": 0.25,
   "marker_per_cell":1024,
+  "drift_center_transformation_switch":false,
   "_comment on integration_starat_points": "Should be 15 or 31 for now",
   "_comment on water_bag_weight": "1 means marker=Fm; 0 means water bag however it won't work since 1/0; infinity means delta distribution in vpara A value bigger than 2 doesn't work well"
 }

@@ -84,7 +84,7 @@ struct PIC_State {
 
         auto cal_velocity = [this, &vs](std::size_t begin, std::size_t end) {
             for (std::size_t i = begin; i < end; ++i) {
-                const auto& [eta, v_para, v_perp, w] = markers[i];
+                const auto& [eta, v_para, v_perp, weight] = markers[i];
 
                 const auto x_perp = v_perp / para.vt;
                 const auto sb = std::sqrt(para.b_theta *
@@ -105,10 +105,22 @@ struct PIC_State {
 
                 const auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
-                vs[i] = p_weight * std::conj(dc_pb) *
+                if (para.drift_center_transformation_switch) {
+                    vs[i] =
+                        p_weight * std::conj(dc_pb) *
                         (complex_type{0., 1.} *
-                             (omega_st - omega_d(eta) * omega_dv) * j0 * phi -
+                             ((omega_st - omega_d(eta) * omega_dv) * j0 * phi) -
                          v_para / (para.q * para.R) * (j0 * dphi + dj0 * phi));
+                } else {
+                    vs[i] =
+                        -weight * omega_d(eta) * omega_dv *
+                            complex_type{0., 1.} +
+                        p_weight * (complex_type{0., 1.} *
+                                        ((omega_st - omega_d(eta) * omega_dv) *
+                                         j0 * phi) -
+                                    v_para / (para.q * para.R) *
+                                        (j0 * dphi + dj0 * phi));
+                }
             }
         };
 
@@ -192,7 +204,7 @@ struct PIC_State {
     auto initialize_marker_extras() {
         extra_container_type initial_extrasa;
         initial_extrasa.reserve(marker_num());
-        for (const auto& [eta, v_para, v_perp, w] : markers) {
+        for (const auto& [eta, v_para, v_perp, weight] : markers) {
             initial_extrasa.push_back(
                 {.velocity_dependence_of_magnetic_drift_frequency =
                      (v_para * v_para + .5 * v_perp * v_perp) /
@@ -249,7 +261,7 @@ struct PIC_State {
                 buffer[buffer_begin + i] = 0;
             }
             for (std::size_t i = begin; i < end; ++i) {
-                const auto& [eta, v_para, v_perp, w] = markers[i];
+                const auto& [eta, v_para, v_perp, weight] = markers[i];
                 auto& [omega_dv, omega_st, p_weight, j0, dc_pb] =
                     marker_extras[i];
 
@@ -260,7 +272,9 @@ struct PIC_State {
                 dc_pb = std::exp(complex_type{
                     0., -omega_d_integral(eta, v_para) * omega_dv});
 
-                const auto den = j0 * w * dc_pb;
+                const auto den = para.drift_center_transformation_switch
+                                     ? j0 * weight * dc_pb
+                                     : j0 * weight;
 
                 const auto [cell_idx, cell_w] = locate(eta);
 
@@ -284,46 +298,46 @@ struct PIC_State {
             }));
         }
 #if 0
-        constexpr std::size_t reduce_size =
-            4;  // batch_count should be a power of this number
-        // std::vector<std::future<void>> reduce_res;
-        // NOTE: Reservation is necessary here since I do not lock this vector
-        // when visiting it in other threads
-        res.reserve((batch_count * reduce_size - 1) / (reduce_size - 1));
-        for (std::size_t i = 0, current_level_idx = 0,
-                         current_level_task_count = batch_count / reduce_size;
-             i < (batch_count - 1) / (reduce_size - 1);
-             ++i, ++current_level_idx) {
-            if (current_level_idx == current_level_task_count) {
-                current_level_task_count /= reduce_size;
-                current_level_idx = 0;
-            }
-            res.push_back(thread_pool.queue_task([&, current_level_idx,
-                                                  current_level_task_count]() {
-                // wait for previous tasks
-                std::size_t last_level_begin =
-                    (batch_count - current_level_task_count * reduce_size) *
-                    reduce_size / (reduce_size - 1);
-                for (std::size_t j = 0; j < reduce_size; ++j) {
-                    res[last_level_begin + current_level_idx * reduce_size + j]
-                        .get();
-                }
-                std::size_t block_length =
-                    batch_count / current_level_task_count * nf;
-                for (std::size_t j = 1; j < reduce_size; ++j) {
-                    for (std::size_t k = 0; k < nf; ++k) {
-                        buffer[current_level_idx * block_length + k] +=
-                            buffer[current_level_idx * block_length +
-                                   j * block_length / reduce_size + k];
-                    }
-                }
-            }));
-        }
+    constexpr std::size_t reduce_size =
+      4;  // batch_count should be a power of this number
+    // std::vector<std::future<void>> reduce_res;
+    // NOTE: Reservation is necessary here since I do not lock this vector
+    // when visiting it in other threads
+    res.reserve((batch_count * reduce_size - 1) / (reduce_size - 1));
+    for (std::size_t i = 0, current_level_idx = 0,
+	   current_level_task_count = batch_count / reduce_size;
+	 i < (batch_count - 1) / (reduce_size - 1);
+	 ++i, ++current_level_idx) {
+      if (current_level_idx == current_level_task_count) {
+	current_level_task_count /= reduce_size;
+	current_level_idx = 0;
+      }
+      res.push_back(thread_pool.queue_task([&, current_level_idx,
+					    current_level_task_count]() {
+	// wait for previous tasks
+	std::size_t last_level_begin =
+	  (batch_count - current_level_task_count * reduce_size) *
+	  reduce_size / (reduce_size - 1);
+	for (std::size_t j = 0; j < reduce_size; ++j) {
+	  res[last_level_begin + current_level_idx * reduce_size + j]
+	    .get();
+	}
+	std::size_t block_length =
+	  batch_count / current_level_task_count * nf;
+	for (std::size_t j = 1; j < reduce_size; ++j) {
+	  for (std::size_t k = 0; k < nf; ++k) {
+	    buffer[current_level_idx * block_length + k] +=
+	      buffer[current_level_idx * block_length +
+		     j * block_length / reduce_size + k];
+	  }
+	}
+      }));
+    }
 
-        res.back().get();
-        for (std::size_t idx = 0; idx < nf; ++idx) {
-            field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
-        }
+    res.back().get();
+    for (std::size_t idx = 0; idx < nf; ++idx) {
+      field[idx] = buffer[idx] * quasi_neutrality_coef[idx];
+    }
 #else
         for (auto& f : res) { f.get(); }
         for (std::size_t idx = 0; idx < nf; ++idx) { field[idx] = 0; }
@@ -459,42 +473,42 @@ struct Integrator {
 
 namespace util {
 
-auto calculate_omega(const auto& stats, auto dt) {
+  auto calculate_omega(const auto& stats, auto dt) {
     std::size_t n = stats.size() / 2;
     // take the second half of log of norm
     auto norm_log_view =
-        stats | std::views::drop(n) | std::views::elements<2> |
-        std::views::transform([](auto v) { return std::log(v); });
+      stats | std::views::drop(n) | std::views::elements<2> |
+      std::views::transform([](auto v) { return std::log(v); });
     double t = 0;
     auto [weighted_sum, sum] = std::accumulate(
-        norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
-        [&t, dt](auto acc, auto val) mutable {
-            auto [weighted_sum, sum] = acc;
-            t += dt;
-            return std::make_pair(weighted_sum + val * t, sum + val);
-        });
+					       norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
+					       [&t, dt](auto acc, auto val) mutable {
+						 auto [weighted_sum, sum] = acc;
+						 t += dt;
+						 return std::make_pair(weighted_sum + val * t, sum + val);
+					       });
     auto gamma = 6 * (2 * weighted_sum - dt * sum * (n + 1)) /
-                 (dt * dt * n * (n * n - 1));
+      (dt * dt * n * (n * n - 1));
     std::vector<double> max_pts;
     auto real_log_view =
-        stats | std::views::drop(n) | std::views::elements<0> |
-        std::views::transform([](auto v) { return std::log(std::abs(v)); });
+      stats | std::views::drop(n) | std::views::elements<0> |
+      std::views::transform([](auto v) { return std::log(std::abs(v)); });
     for (std::size_t i = 1; i < real_log_view.size() - 1; ++i) {
-        if (real_log_view[i] > real_log_view[i - 1] &&
-            real_log_view[i] > real_log_view[i + 1]) {
-            max_pts.push_back(i * dt);
-        }
+      if (real_log_view[i] > real_log_view[i - 1] &&
+	  real_log_view[i] > real_log_view[i + 1]) {
+	max_pts.push_back(i * dt);
+      }
     }
 
     decltype(dt) omega = 0;
     if (max_pts.size() > 1) {
-        // FIXME: Sign of real frequency is not accounted for properly, consider
-        // using FFT here
-        omega = std::numbers::pi * (max_pts.size() - 1) /
-                (max_pts.back() - max_pts.front());
+      // FIXME: Sign of real frequency is not accounted for properly, consider
+      // using FFT here
+      omega = std::numbers::pi * (max_pts.size() - 1) /
+	(max_pts.back() - max_pts.front());
     }
     return std::complex<decltype(dt)>{omega, gamma};
-}
+  }
 
 }  // namespace util
 
