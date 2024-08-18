@@ -304,7 +304,7 @@ int main() {
 
     timer.start_timing("Output");
     std::ofstream output(output_filename);
-    output << result.dump();
+    output << result.pretty_print();
     timer.pause_timing("Output");
 
     timer.pause_timing("All");
