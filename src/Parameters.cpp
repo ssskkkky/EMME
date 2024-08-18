@@ -55,7 +55,7 @@ Parameters::Parameters(const util::json::Value& input)
       omega_s_e(-tau * omega_s_i),
       omega_d_bar(2.0 * epsilon_n * omega_s_i),
       drift_center_transformation_switch(
-          input.at("drift_center_transformation_switch")) {}
+          input.at("drift_center_transformation_switch").as_boolean()) {}
 
 void Parameters::parameterInit() {
     alpha = q * q * R * beta_e / (epsilon_n * R) *
