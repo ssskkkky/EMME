@@ -473,42 +473,61 @@ struct Integrator {
 
 namespace util {
 
-  auto calculate_omega(const auto& stats, auto dt) {
+auto calculate_omega(const auto& stats, auto dt) {
     std::size_t n = stats.size() / 2;
     // take the second half of log of norm
-    auto norm_log_view =
-      stats | std::views::drop(n) | std::views::elements<2> |
-      std::views::transform([](auto v) { return std::log(v); });
     double t = 0;
+#ifdef EMME_USE_VIEWS
+    auto norm_log_view =
+        stats | std::views::drop(n) | std::views::elements<2> |
+        std::views::transform([](auto v) { return std::log(v); });
     auto [weighted_sum, sum] = std::accumulate(
-					       norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
-					       [&t, dt](auto acc, auto val) mutable {
-						 auto [weighted_sum, sum] = acc;
-						 t += dt;
-						 return std::make_pair(weighted_sum + val * t, sum + val);
-					       });
+        norm_log_view.begin(), norm_log_view.end(), std::pair<double, double>{},
+        [&t, dt](auto acc, auto val) mutable {
+            auto [weighted_sum, sum] = acc;
+            t += dt;
+            return std::make_pair(weighted_sum + val * t, sum + val);
+        });
+#else
+    double weighted_sum{};
+    double sum{};
+    for (std::size_t i = n; i < stats.size(); ++i) {
+        auto val = std::log(std::get<2>(stats[i]));
+        weighted_sum += val * t;
+        sum += val;
+        t += dt;
+    }
+#endif
     auto gamma = 6 * (2 * weighted_sum - dt * sum * (n + 1)) /
-      (dt * dt * n * (n * n - 1));
+                 (dt * dt * n * (n * n - 1));
     std::vector<double> max_pts;
+#ifdef EMME_USE_VIEWS
     auto real_log_view =
-      stats | std::views::drop(n) | std::views::elements<0> |
-      std::views::transform([](auto v) { return std::log(std::abs(v)); });
+        stats | std::views::drop(n) | std::views::elements<0> |
+        std::views::transform([](auto v) { return std::log(std::abs(v)); });
+#else
+    std::vector<double> real_log_view;
+    real_log_view.reserve(stats.size() - n);
+    for (std::size_t i = n; i < stats.size(); ++i) {
+        real_log_view.push_back(std::log(std::abs(std::get<0>(stats[i]))));
+    }
+#endif
     for (std::size_t i = 1; i < real_log_view.size() - 1; ++i) {
-      if (real_log_view[i] > real_log_view[i - 1] &&
-	  real_log_view[i] > real_log_view[i + 1]) {
-	max_pts.push_back(i * dt);
-      }
+        if (real_log_view[i] > real_log_view[i - 1] &&
+            real_log_view[i] > real_log_view[i + 1]) {
+            max_pts.push_back(i * dt);
+        }
     }
 
     decltype(dt) omega = 0;
     if (max_pts.size() > 1) {
-      // FIXME: Sign of real frequency is not accounted for properly, consider
-      // using FFT here
-      omega = std::numbers::pi * (max_pts.size() - 1) /
-	(max_pts.back() - max_pts.front());
+        // FIXME: Sign of real frequency is not accounted for properly, consider
+        // using FFT here
+        omega = std::numbers::pi * (max_pts.size() - 1) /
+                (max_pts.back() - max_pts.front());
     }
     return std::complex<decltype(dt)>{omega, gamma};
-  }
+}
 
 }  // namespace util
 
