@@ -284,16 +284,24 @@ int main() {
                                               ".bin";
                 std::ofstream eigen_matrix_file(eigen_matrix_file_name,
                                                 std::ios::binary);
-                auto single_result =
-                    invoke_solver(input, omega, eigen_matrix_file);
-                single_result["eigenMatrix"] =
-                    eigen_matrix_file
-                        ? eigen_matrix_file_name
-                        : "Can not open '" + eigen_matrix_file_name +
-                              "' for write.";
-                single_result["scan_value"] = scan_value;
-                scan_result_array.as_array().push_back(
-                    std::move(single_result));
+                try {
+                    auto single_result =
+                        invoke_solver(input, omega, eigen_matrix_file);
+                    single_result["eigenMatrix"] =
+                        eigen_matrix_file
+                            ? eigen_matrix_file_name
+                            : "Can not open '" + eigen_matrix_file_name +
+                                  "' for write.";
+                    single_result["scan_value"] = scan_value;
+                    scan_result_array.as_array().push_back(
+                        std::move(single_result));
+                } catch (std::exception& e) {
+                    auto err_result = Value::create_object();
+                    err_result["eigenvalue"] = "NaN";
+                    err_result["reason"] = e.what();
+                    scan_result_array.as_array().push_back(
+                        std::move(err_result));
+                }
                 std::tie(cont, turning, scan_value) = get_scan_val();
             }
             result_object[key] = std::move(result_unit);
