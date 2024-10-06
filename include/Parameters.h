@@ -113,6 +113,11 @@ struct Cylinder : public Parameters {
     double beta_1(double eta, double eta_p) const override;
 };
 
+struct CylinderOld : public Parameters {
+    CylinderOld(const util::json::Value&);
+    double beta_1(double eta, double eta_p) const override;
+};
+
 struct TaloyMagneticDrift : public Parameters {
     TaloyMagneticDrift(const util::json::Value&);
     double g_integration_f(double eta) const override;
@@ -124,7 +129,8 @@ static_assert(std::is_trivially_destructible_v<Stellarator>,
               "Stellarator should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<Cylinder>,
               "Cylinder should be trivially destructible.");
-
+static_assert(std::is_trivially_destructible_v<CylinderOld>,
+              "CylinderOld should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<Cylinder>,
               "TaloyMD should be trivially destructible.");
 

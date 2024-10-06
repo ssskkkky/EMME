@@ -24,6 +24,8 @@ const Parameters& Parameters::generate(const util::json::Value& input) {
     } else if (std::string{"taloyMagneticDrift"}.compare(input.at("conf")) ==
                0) {
         new (buffer) TaloyMagneticDrift(input);
+    } else if (std::string{"cylinder old"}.compare(input.at("conf")) == 0) {
+        new (buffer) CylinderOld(input);
     } else {
         throw std::runtime_error("Input configuration not supported yet.");
     }
@@ -476,4 +478,10 @@ double TaloyMagneticDrift::g_integration_f(double eta) const {
               584 * alpha * shat + 216 * std::pow(shat, 2))) /
                 (840. * (7 + 16 * alpha + 40 * std::pow(alpha, 2) - 28 * shat -
                          80 * alpha * shat + 40 * std::pow(shat, 2))));
+}
+
+CylinderOld::CylinderOld(const util::json::Value& input) : Parameters(input) {}
+
+double CylinderOld::beta_1(double eta, double eta_p) const {
+    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p);
 }
