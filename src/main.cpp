@@ -295,7 +295,7 @@ int main() {
                     single_result["scan_value"] = scan_value;
                     scan_result_array.as_array().push_back(
                         std::move(single_result));
-                } catch (std::exception& e) {
+                } catch (const std::exception& e) {
                     auto err_result = Value::create_object();
                     err_result["eigenvalue"] = "NaN";
                     err_result["reason"] = e.what();
