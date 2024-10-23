@@ -372,6 +372,38 @@ auto bessel_i_helper(const T& z) {
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
 
+template <typename T>
+auto bessel_j_helper(const T& z) {
+    constexpr double THRESHOLD = 2.e+7;
+    int n = std::floor(std::abs(z)) + 1;
+    T p0 = 0.;
+    T p1 = 1.;
+    T p_tmp{};
+    double test_1 = std::max(
+        std::sqrt(THRESHOLD * std::abs(p1) * std::abs(p0 - 2.0 * n / z * p1)),
+        THRESHOLD);
+
+    for (; std::abs(p1) <= test_1; ++n) {
+        p_tmp = 2.0 * n / z * p1 - p0;
+        p0 = p1;
+        p1 = p_tmp;
+    }
+
+    std::array<std::complex<double>, 4> ip{1., 1.i, -1., -1.i};
+
+    T y0{1.0 / p1}, y1{}, y_tmp;
+    T mu = 0.;
+    for (n--; n > 0; --n) {
+        y_tmp = 2. * n / z * y0 - y1;
+        y1 = y0;
+        y0 = y_tmp;
+        mu += 2. * ip[std::imag(z) < 0 ? n & 3 : (4 - n & 3) & 3] * y1;
+    }
+
+    mu = std::exp(1.i * (std::imag(z) < 0 ? -z : z)) * (mu + y0);
+    return std::array<T, 2>{y0 / mu, y1 / mu};
+}
+
 std::string get_date_string();
 
 template <typename T, std::size_t N>
