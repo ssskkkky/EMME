@@ -359,13 +359,12 @@ struct PIC_State {
     }
 
     inline auto omega_d(auto eta) const {
-        return 2. * para.epsilon_n * para.omega_s_i *
+        return para.omega_d_bar *
                (std::cos(eta) + para.shat * eta * std::sin(eta));
     }
 
     inline auto omega_d_integral(auto eta, auto v_para) const {
-        return (para.q * para.R / v_para) * 2 * para.epsilon_n *
-               para.omega_s_i *
+        return (para.q * para.R / v_para) * para.omega_d_bar *
                (std::sin(eta) * (1. + para.shat) -
                 para.shat * eta * std::cos(eta));
     }

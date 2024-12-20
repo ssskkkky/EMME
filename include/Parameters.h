@@ -22,6 +22,7 @@ struct Parameters {
     double beta_e;
     double R;
     double vt;
+    double omega_d_coeff;
     double length;
     double theta;
     int npoints;

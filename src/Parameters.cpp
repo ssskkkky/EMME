@@ -38,6 +38,7 @@ Parameters::Parameters(const util::json::Value& input)
       beta_e(input.at("beta_e")),
       R(input.at("R")),
       vt(input.at("vt")),
+      omega_d_coeff(input.at("omega_d_coeff")),
       length(input.at("length")),
       theta(input.at("theta")),
       npoints(input.at("npoints")),
@@ -53,7 +54,7 @@ Parameters::Parameters(const util::json::Value& input)
       water_bag_weight_vperp(input.at("water_bag_weight_vperp")),
       omega_s_i(-(std::sqrt(b_theta) * vt) / (epsilon_n * R)),
       omega_s_e(-tau * omega_s_i),
-      omega_d_bar(2.0 * epsilon_n * omega_s_i),
+      omega_d_bar(2.0 * epsilon_n * omega_s_i * omega_d_coeff),
       drift_center_transformation_switch(
           input.at("drift_center_transformation_switch").as_boolean()) {}
 
@@ -62,7 +63,7 @@ void Parameters::parameterInit() {
             ((1 + eta_e) + 1 / tau * (1 + eta_i));
     omega_s_i = -(std::sqrt(b_theta) * vt) / (epsilon_n * R);
     omega_s_e = -tau * omega_s_i;
-    omega_d_bar = 2.0 * epsilon_n * omega_s_i;
+    omega_d_bar = 2.0 * epsilon_n * omega_s_i * omega_d_coeff;
 };
 
 double Parameters::g_integration_f(double eta) const {
@@ -71,12 +72,12 @@ double Parameters::g_integration_f(double eta) const {
 }
 
 double Parameters::beta_1(double eta, double eta_p) const {
-    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) *
+    return (q * R) / vt * (omega_d_bar) *
            (g_integration_f(eta) - g_integration_f(eta_p));
 }
 
 double Parameters::beta_1_e(double eta, double eta_p) const {
-    return (q * R) / vt * (2.0 * epsilon_n * omega_s_e) *
+    return (q * R) / vt * (omega_d_bar * omega_s_e / omega_s_i) *
            (g_integration_f(eta) - g_integration_f(eta_p));
 }
 
@@ -262,7 +263,7 @@ void Stellarator::parameterInit() {
             ((1 + eta_e) + 1 / tau * (1 + eta_i));
     omega_s_i = -(std::sqrt(b_theta) * vt) / (epsilon_n * R);
     omega_s_e = -tau * omega_s_i;
-    omega_d_bar = 2.0 * epsilon_n * omega_s_i;
+    omega_d_bar = 2.0 * epsilon_n * omega_s_i * omega_d_coeff;
 
     deltap = -0.25 * alpha;
     beta_e_p = beta_e * (1.0 + eta_e) / (epsilon_n * R);
