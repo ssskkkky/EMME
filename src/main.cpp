@@ -109,7 +109,8 @@ auto solve_once_pic(const auto& input,
                                   acc[2] + std::real(val * std::conj(val))};
             });
         stats.push_back({real / nf, imag / nf, std::sqrt(norm / nf)});
-        std::cout << "        " << idx + 1 << '/' << nt << '\n';
+        std::cout << "        " << idx + 1 << '/' << nt
+                  << " phi[0]: " << current_field[nf / 2] << '\n';
         timer.pause_timing("Diagnostics");
     }
 

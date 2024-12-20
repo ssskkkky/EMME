@@ -388,7 +388,7 @@ auto bessel_j_helper(const T& z) {
         p0 = p1;
         p1 = p_tmp;
     }
-
+    using namespace std::complex_literals;
     std::array<std::complex<double>, 4> ip{1., 1.i, -1., -1.i};
 
     T y0{1.0 / p1}, y1{}, y_tmp;
