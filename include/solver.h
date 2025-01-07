@@ -5,7 +5,7 @@
 
 #ifdef EMME_MKL
 #define MKL_Complex16 lapack_complex_double
-#define lapack_int MKL_INT //This do work
+#define lapack_int MKL_INT  // This do work
 #endif
 
 // #include <chrono>
@@ -24,7 +24,6 @@
 #else
 #include "lapack.h"
 #endif
-
 
 using value_type = std::complex<double>;
 using matrix_type = Matrix<value_type, util::AlignedAllocator<value_type>>;
@@ -145,7 +144,7 @@ class EigenSolver {
                 oss << "the " << -info << "-th argument had an illegal value";
             } else {
                 oss << "The factorization has been completed, but the "
-                    << "block diagonal matrix D is exactly singular at" << info
+                    << "block diagonal matrix D is exactly singular at " << info
                     << ", so the solution could not be computed.";
             }
             throw std::runtime_error(oss.str());
