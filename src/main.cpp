@@ -302,6 +302,7 @@ int main() {
                     err_result["reason"] = e.what();
                     scan_result_array.as_array().push_back(
                         std::move(err_result));
+                    std::cerr << "        " << e.what() << '\n';
                 }
                 std::tie(cont, turning, scan_value) = get_scan_val();
             }
