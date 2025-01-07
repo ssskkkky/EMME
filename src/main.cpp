@@ -274,8 +274,13 @@ int main() {
                 // begin to scan another direction
                 if (turning) {
                     auto& new_omega = scan_result_array[0]["eigenvalue"];
-                    omega.real(new_omega[0]);
-                    omega.imag(new_omega[1]);
+                    if (new_omega.is_string()) {
+                        // NaN
+                        omega = omega_initial_guess;
+                    } else {
+                        omega.real(new_omega[0]);
+                        omega.imag(new_omega[1]);
+                    }
                 }
 
                 std::cout << "    " << key << ":" << scan_value << '\n';
