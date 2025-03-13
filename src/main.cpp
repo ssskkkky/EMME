@@ -274,8 +274,13 @@ int main() {
                 // begin to scan another direction
                 if (turning) {
                     auto& new_omega = scan_result_array[0]["eigenvalue"];
-                    omega.real(new_omega[0]);
-                    omega.imag(new_omega[1]);
+                    if (new_omega.is_string()) {
+                        // NaN
+                        omega = omega_initial_guess;
+                    } else {
+                        omega.real(new_omega[0]);
+                        omega.imag(new_omega[1]);
+                    }
                 }
 
                 std::cout << "    " << key << ":" << scan_value << '\n';
@@ -302,6 +307,7 @@ int main() {
                     err_result["reason"] = e.what();
                     scan_result_array.as_array().push_back(
                         std::move(err_result));
+                    std::cerr << "        " << e.what() << '\n';
                 }
                 std::tie(cont, turning, scan_value) = get_scan_val();
             }
