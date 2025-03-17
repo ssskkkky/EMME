@@ -437,8 +437,9 @@ auto bessel_j_helper(const T& z, bool log = false) {
     }
 
     if (log) {
-        mu = 1.i * (std::imag(z) < 0 ? -z : z) + std::log(mu + y0);
-        return std::array<T, 2>{std::log(y0) - mu, std::log(y1) - mu};
+        return std::array<T, 2>{
+            std::log(y0 / (mu + y0)) - 1.i * (std::imag(z) < 0 ? -z : z),
+            std::log(y1 / (mu + y0)) - 1.i * (std::imag(z) < 0 ? -z : z)};
     }
     mu = std::exp(1.i * (std::imag(z) < 0 ? -z : z)) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};

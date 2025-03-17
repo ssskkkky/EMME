@@ -67,12 +67,6 @@ struct Parameters {
    protected:
     // Constructor
     Parameters(const util::json::Value&);
-
-    std::array<std::complex<double>, 3> integration_lambda_arg(
-        double eta,
-        double eta_p,
-        std::complex<double> tau,
-        bool log = false) const;
 };
 
 struct Stellarator : public Parameters {

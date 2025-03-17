@@ -91,18 +91,6 @@ std::complex<double> Parameters::lambda_f_tau(double eta,
                      (q * R * (eta - eta_p)) * beta_1(eta, eta_p);
 }
 
-std::array<std::complex<double>, 3> Parameters::integration_lambda_arg(
-    double eta,
-    double eta_p,
-    std::complex<double> tau,
-    bool log) const {
-    std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
-    std::complex<double> arg =
-        std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
-    auto log_bessel_i_01 = util::bessel_i_helper(arg, log);
-    return {lambda_f_tau_term, log_bessel_i_01[0], log_bessel_i_01[1]};
-}
-
 std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
                                          std::complex<double> tau) const {
     return exp(std::complex<double>(0.0, 1.0) * tau * omega);
