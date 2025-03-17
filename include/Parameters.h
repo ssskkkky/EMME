@@ -50,16 +50,6 @@ struct Parameters {
     std::complex<double> lambda_f_tau(double eta,
                                       double eta_p,
                                       std::complex<double> tau) const;
-    std::complex<double> integration_lambda_tau(
-        double eta,
-        double eta_p,
-        std::complex<double> tau,
-        std::array<std::complex<double>, 5> int_arg) const;
-    std::complex<double> integration_lambda_d_tau(
-        double eta,
-        double eta_p,
-        std::complex<double> tau,
-        std::array<std::complex<double>, 5> int_arg) const;
 
     std::complex<double> h_f_tau(std::complex<double> omega,
                                  std::complex<double> tau) const;
@@ -78,10 +68,11 @@ struct Parameters {
     // Constructor
     Parameters(const util::json::Value&);
 
-    std::array<std::complex<double>, 5> integration_lambda_arg(
+    std::array<std::complex<double>, 3> integration_lambda_arg(
         double eta,
         double eta_p,
-        std::complex<double> tau) const;
+        std::complex<double> tau,
+        bool log = false) const;
 };
 
 struct Stellarator : public Parameters {

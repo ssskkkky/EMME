@@ -342,8 +342,9 @@ auto integrate_coarse(const Func& func,
     return impl::gauss_kronrod_adaptive(func, a, b, max_subdivide, Tx{}, tol);
 }
 
+// NOTE: When calculating log of bessel_i, the branch is not determined
 template <typename T>
-auto bessel_i_helper(const T& z) {
+auto bessel_i_helper(const T& z, bool log = false) {
     constexpr double THRESHOLD = 2.e+7;
     int n = std::floor(std::abs(z)) + 1;
     T p0 = 0.;
@@ -368,12 +369,47 @@ auto bessel_i_helper(const T& z) {
         mu += 2. * (std::real(z) < 0 ? 1 - 2 * (n & 1) : 1) * y1;
     }
 
+    if (log) {
+        return std::array<T, 2>{
+            std::log(y0 / (mu + y0)) - (std::real(z) < 0 ? z : -z),
+            std::log(y1 / (mu + y0)) - (std::real(z) < 0 ? z : -z)};
+    }
     mu = std::exp(std::real(z) < 0 ? z : -z) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
 
 template <typename T>
-auto bessel_j_helper(const T& z) {
+auto bessel_i_alter_helper(const T& z) {
+    constexpr double THRESHOLD = 2.e+7;
+    int n = std::floor(std::abs(z)) + 1;
+    T p0 = 0.;
+    T p1 = 1.;
+    T p_tmp{};
+    double test_1 = std::max(
+        std::sqrt(THRESHOLD * std::abs(p1) * std::abs(p0 - 2.0 * n / z * p1)),
+        THRESHOLD);
+
+    for (; std::abs(p1) <= test_1; ++n) {
+        p_tmp = p0 - 2.0 * n / z * p1;
+        p0 = p1;
+        p1 = p_tmp;
+    }
+
+    T y0{1.0 / p1}, y1{}, y_tmp;
+    T mu = 0.;
+    for (n--; n > 0; --n) {
+        y_tmp = 2. * n / z * y0 + y1;
+        y1 = y0;
+        y0 = y_tmp;
+        mu += 2. * (std::real(z) < 0 ? 1 - 2 * (n & 1) : 1) * y1;
+    }
+
+    return std::array<T, 4>{y0, y1, mu + y0, std::real(z) < 0 ? z : -z};
+}
+
+// NOTE: When calculating log of bessel_j, the branch is not determined
+template <typename T>
+auto bessel_j_helper(const T& z, bool log = false) {
     constexpr double THRESHOLD = 2.e+7;
     int n = std::floor(std::abs(z)) + 1;
     T p0 = 0.;
@@ -400,6 +436,10 @@ auto bessel_j_helper(const T& z) {
         mu += 2. * ip[std::imag(z) < 0 ? n & 3 : (4 - n & 3) & 3] * y1;
     }
 
+    if (log) {
+        mu = 1.i * (std::imag(z) < 0 ? -z : z) + std::log(mu + y0);
+        return std::array<T, 2>{std::log(y0) - mu, std::log(y1) - mu};
+    }
     mu = std::exp(1.i * (std::imag(z) < 0 ? -z : z)) * (mu + y0);
     return std::array<T, 2>{y0 / mu, y1 / mu};
 }
