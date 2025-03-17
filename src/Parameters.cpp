@@ -91,60 +91,6 @@ std::complex<double> Parameters::lambda_f_tau(double eta,
                      (q * R * (eta - eta_p)) * beta_1(eta, eta_p);
 }
 
-std::array<std::complex<double>, 5> Parameters::integration_lambda_arg(
-    double eta,
-    double eta_p,
-    std::complex<double> tau) const {
-    std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
-    std::complex<double> arg =
-        std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau_term;
-    // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
-    // std::complex<double> bessel_1 = util::bessel_ic(1, arg);
-    std::complex<double> exp_term =
-        std::exp(-(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau_term));
-    auto binding_bessel = util::bessel_i_helper(arg);
-    std::complex<double> bessel_0 = binding_bessel[0];
-    std::complex<double> bessel_1 = binding_bessel[1];
-    return {lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1};
-}
-
-std::complex<double> Parameters::integration_lambda_tau(
-    double eta,
-    double eta_p,
-    std::complex<double> tau,
-    std::array<std::complex<double>, 5> int_arg) const {
-    auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
-
-    return 1.0 / lambda_f_tau_term * bessel_0; // exp_term is throwed in the main part to handle with float overflow
-}
-
-std::complex<double> Parameters::integration_lambda_d_tau(
-    double eta,
-    double eta_p,
-    std::complex<double> tau,
-    std::array<std::complex<double>, 5> int_arg) const {
-    auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
-    // std::complex<double> arg =
-    //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_tau(eta, eta_p, tau);
-    // std::complex<double> bessel_0 = util::bessel_ic(0, arg);
-    // std::complex<double> bessel_1 = util::bessel_ic(1, arg);
-    // std::complex<double> exp_term = std::exp(
-    //     -(bi(eta) + bi(eta_p)) / (2.0 * lambda_f_tau(eta, eta_p, tau)));
-
-    // std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
-
-
-    // exp_term is throwed in the main part to handle with float overflow
-    std::complex<double> term1 = -bessel_1 *
-                                 std::sqrt(bi(eta) * bi(eta_p)) /
-                                 pow(lambda_f_tau_term, 3);
-    std::complex<double> term2 = bessel_0 * (bi(eta) + bi(eta_p)) /
-                                 (2.0 * pow(lambda_f_tau_term, 3));
-    std::complex<double> term3 =
-        -bessel_0 / pow(lambda_f_tau_term, 2);
-    return term1 + term2 + term3;
-}
-
 std::complex<double> Parameters::h_f_tau(std::complex<double> omega,
                                          std::complex<double> tau) const {
     return exp(std::complex<double>(0.0, 1.0) * tau * omega);
@@ -158,69 +104,62 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
 {
     // Define the integrand function
     auto integrand = [&](double taut_transformed) {
-        // std::complex<double> arg =
-        //     std::sqrt(bi(eta) * bi(eta_p)) / lambda_f_taut(eta, eta_p, taut);
-        auto omi = -std::copysign(1, omega.real());
-        auto taut = arc_coeff * std::atan(taut_transformed) -
-                    1.i * omi * taut_transformed;
-        auto jacob =
+        const auto omi = -std::copysign(1, omega.real());
+        const auto taut = arc_coeff * std::atan(taut_transformed) -
+                          1.i * omi * taut_transformed;
+        const auto jacob =
             arc_coeff / (1 + taut_transformed * taut_transformed) - 1.i * omi;
 
-        auto passer = integration_lambda_arg(eta, eta_p, taut);
+        std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, taut);
+        const auto bi_eta = bi(eta);
+        const auto bi_eta_p = bi(eta_p);
 
-        std::complex<double> term1 =
+        const auto [y0, y1, mu, z] = util::bessel_i_alter_helper(
+            std::sqrt(bi_eta * bi_eta_p) / lambda_f_tau_term);
+
+        const auto lambda_f_tau_term_cubic_inv =
+            std::pow(lambda_f_tau_term, -3.);
+        const auto norm_vel = (q * R * (eta - eta_p)) / (vt * taut);
+
+        const std::complex<double> i0_coef =
             (omega -
-             omega_s_i *
-                 (1.0 +
-                  eta_i * (0.5 * std::pow((q * R * (eta - eta_p)) / (vt * taut),
-                                          2) -
-                           1.5))) *
-            integration_lambda_tau(eta, eta_p, taut, passer);
+             omega_s_i * (1.0 + eta_i * (0.5 * norm_vel * norm_vel - 1.5))) /
+                lambda_f_tau_term +
+            omega_s_i * eta_i * (.5 * (bi_eta + bi_eta_p) - lambda_f_tau_term) *
+                lambda_f_tau_term_cubic_inv;
 
-        std::complex<double> term2 =
-            omega_s_i * eta_i *
-            integration_lambda_d_tau(eta, eta_p, taut, passer);
+        const std::complex<double> i1_coef = -omega_s_i * eta_i *
+                                             std::sqrt(bi_eta * bi_eta_p) *
+                                             lambda_f_tau_term_cubic_inv;
 
-	auto safe_exp = [](auto var){
-	  if (std::real(var)<-40){
-	    return std::complex<double> {0.};
-	  }
-	  else
-	  {
-	    return std::exp(var);
-          }
-	};
+        const auto beta_1_val = beta_1(eta, eta_p);
 
-        return std::pow((q * R) / (taut * vt) * (eta - eta_p), m) *
-               safe_exp(
-                   -0.5 * std::pow((q * R * (eta - eta_p)) / (vt * taut), 2) +
-                   1.i * (beta_1(eta, eta_p) / 2.0 *
-                          (((-q * R * (eta - eta_p)) / (vt * taut)))) +
-                   std::complex<double>(0.0, 1.0) * taut * omega +
-                   -(bi(eta) + bi(eta_p)) /
-                       (2.0 * (1.0 + 0.5 * std::complex<double>(0.0, 1.0) *
-                                         (taut * vt) / (q * R * (eta - eta_p)) *
-                                         beta_1(eta, eta_p)))) /
-               taut * (term1 + term2) * jacob;
+        // logarithmic of normalized parallel velocity in exponential term,
+        // following terms is similar
+        const auto log_norm_vel = -0.5 * norm_vel * norm_vel;
+        const auto log_i_beta = -.5i * beta_1_val * norm_vel;
+        const auto log_hf_tau = 1.i * taut * omega;
+        const auto log_exp_term_int_lambda_tau =
+            -(bi_eta + bi_eta_p) / (2.0 + 1.i * beta_1_val / norm_vel);
+
+        const auto log_coef = log_norm_vel + log_i_beta + log_hf_tau +
+                              log_exp_term_int_lambda_tau;
+
+        // deal with underflow problem
+        const auto safe_exp = [](auto var) {
+            if (std::real(var) < -40.) {
+                return std::complex<double>{0.};
+            } else {
+                return std::exp(var);
+            }
+        };
+        return std::pow(norm_vel, m) / taut * jacob * safe_exp(log_coef - z) *
+               (i0_coef * y0 + i1_coef * y1) / mu;
     };
 
     auto result =
         util::integrate(integrand, integration_precision, integration_accuracy,
                         integration_iteration_limit, integration_start_points);
-
-    // std::complex<double> term1 =
-    //     (omega -
-    //      omega_s_i *
-    //          (1.0 +
-    //           eta_i * (0.5 * std::pow((q * R * (eta - eta_p)) / (vt *
-    //           tau), 2) -
-    //                    1.5))) *
-    //     integration_lambda_tau(eta, eta_p, tau);
-
-    // auto result = integrand(1.0);
-
-    // Replace "integrate" with the appropriate function call from your
-    // chosen numerical integration library
 
     return -std::complex<double>(0, 1.0) * (q * R) /
            (vt * std::sqrt((2.0 * M_PI))) * result;

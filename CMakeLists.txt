@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 # Project name and optional version
-project(emme VERSION 1.0.0)
+project(emme VERSION 1.1.0)
 
 set(CMAKE_CXX_FLAGS "-DEMME_EXPRESSION_TEMPLATE ")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -DEMME_DEBUG -fsanitize=address")
