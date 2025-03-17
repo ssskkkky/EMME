@@ -3,9 +3,9 @@ cmake_minimum_required(VERSION 3.5)
 # Project name and optional version
 project(emme VERSION 1.0.0)
 
-set(CMAKE_CXX_FLAGS "-DEMME_EXPRESSION_TEMPLATE -DMULTI_THREAD")
+set(CMAKE_CXX_FLAGS "-DEMME_EXPRESSION_TEMPLATE ")
 set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g -Wall -DEMME_DEBUG -fsanitize=address")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -DMULTI_THREAD")
 
 # Find all source files recursively in the "src" directory
 file(GLOB_RECURSE SOURCE_FILES CONFIGURE_DEPENDS "src/*.cpp")

@@ -115,7 +115,7 @@ std::complex<double> Parameters::integration_lambda_tau(
     std::array<std::complex<double>, 5> int_arg) const {
     auto [lambda_f_tau_term, arg, exp_term, bessel_0, bessel_1] = int_arg;
 
-    return 1.0 / lambda_f_tau_term * bessel_0 * exp_term;
+    return 1.0 / lambda_f_tau_term * bessel_0; // exp_term is throwed in the main part to handle with float overflow
 }
 
 std::complex<double> Parameters::integration_lambda_d_tau(
@@ -133,13 +133,15 @@ std::complex<double> Parameters::integration_lambda_d_tau(
 
     // std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, tau);
 
-    std::complex<double> term1 = -exp_term * bessel_1 *
+
+    // exp_term is throwed in the main part to handle with float overflow
+    std::complex<double> term1 = -bessel_1 *
                                  std::sqrt(bi(eta) * bi(eta_p)) /
                                  pow(lambda_f_tau_term, 3);
-    std::complex<double> term2 = exp_term * bessel_0 * (bi(eta) + bi(eta_p)) /
+    std::complex<double> term2 = bessel_0 * (bi(eta) + bi(eta_p)) /
                                  (2.0 * pow(lambda_f_tau_term, 3));
     std::complex<double> term3 =
-        -exp_term * bessel_0 / pow(lambda_f_tau_term, 2);
+        -bessel_0 / pow(lambda_f_tau_term, 2);
     return term1 + term2 + term3;
 }
 
@@ -179,13 +181,27 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
             omega_s_i * eta_i *
             integration_lambda_d_tau(eta, eta_p, taut, passer);
 
+	auto safe_exp = [](auto var){
+	  if (std::real(var)<-40){
+	    return std::complex<double> {0.};
+	  }
+	  else
+	  {
+	    return std::exp(var);
+          }
+	};
+
         return std::pow((q * R) / (taut * vt) * (eta - eta_p), m) *
-               std::exp(-0.5 *
-                        std::pow((q * R * (eta - eta_p)) / (vt * taut), 2)) /
-               taut * (term1 + term2) *
-               std::exp(1.i * (beta_1(eta, eta_p) / 2.0 *
-                               (((-q * R * (eta - eta_p)) / (vt * taut))))) *
-               h_f_tau(omega, taut) * jacob;
+               safe_exp(
+                   -0.5 * std::pow((q * R * (eta - eta_p)) / (vt * taut), 2) +
+                   1.i * (beta_1(eta, eta_p) / 2.0 *
+                          (((-q * R * (eta - eta_p)) / (vt * taut)))) +
+                   std::complex<double>(0.0, 1.0) * taut * omega +
+                   -(bi(eta) + bi(eta_p)) /
+                       (2.0 * (1.0 + 0.5 * std::complex<double>(0.0, 1.0) *
+                                         (taut * vt) / (q * R * (eta - eta_p)) *
+                                         beta_1(eta, eta_p)))) /
+               taut * (term1 + term2) * jacob;
     };
 
     auto result =
