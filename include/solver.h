@@ -156,6 +156,109 @@ class EigenSolver {
         Timer::get_timer().pause_timing("integration");
         matrixDerivativeSecantAssembler();
     }
+
+    void newtonQRSecantIteration() {
+        eigen_matrix_old = eigen_matrix;
+        const char* upper = "Upper";
+        const lapack_int dim = eigen_matrix.getRows();
+        lapack_int work_length = dim * dim;
+        lapack_int optimal_work_length{};
+        std::vector<value_type> work(work_length);
+        std::vector<lapack_int> ipiv(dim);
+        lapack_int info{};
+
+        if (optimal_work_length > work_length) {
+            work_length = optimal_work_length;
+            work.resize(work_length);
+        }
+
+        Timer::get_timer().start_timing("linear solver");
+#ifdef EMME_MKL
+        zgeqrf(&dim, &dim, eigen_matrix.data(), &dim, tau.data(), work.data(),
+               &lwork, &info);
+#else
+
+        LAPACK_zgeqrf(&dim, &dim, eigen_matrix.data(), &dim, tau.data(),
+                      work.data(), &lwork, &info);
+#endif
+        if (info != 0) throw std::runtime_error("QR factorization failed");
+
+        matrix_type R_mat_except_last_col(dim - 1, dim - 1);
+        matrix_type R_mat_except_last_col(dim);
+
+        for (int dim = 0; col < dim - 2; ++col) {
+            for (int row = 0; row <= col; ++row) {  // 上三角部分
+                R_mat_except_last_col[row + col * n] =
+                    eigen_matrix[row + col * m];  // 注意列优先存储
+            }
+        }
+
+        for (int row = 0; row <= dim - 2; ++row) {  // 上三角部分
+            R_last_col[row] =
+                eigen_matrix[row + (dim - 1) * m];  // 注意列优先存储
+        }
+
+        R_last_col[dim - 1] = -1.0;
+
+        const char uplo = 'U';   // 上三角矩阵
+        const char trans = 'N';  // 不进行转置 (A*X = B)
+        const char diag = 'N';   // 是否单位三角矩阵
+
+        // 调用 LAPACK 函数 ztrtrs
+        LAPACK_ztrtrs(&uplo, &trans, &diag, &dim, &1,
+                      R_mat_except_last_col.data(), &dim, R_last_col.data(), &n,
+                      &info);
+
+        // 错误处理
+        if (info != 0) {
+            if (info < 0) {
+                throw std::runtime_error("第 " + std::to_string(-info) +
+                                         " 个参数非法");
+            } else {
+                throw std::runtime_error("矩阵第 " + std::to_string(info) +
+                                         " 个对角线元素为零，无法求解");
+            }
+        }
+
+        const char side = 'L';   // 应用 Q 到左侧
+        const char trans = 'N';  // 不转置 Q
+
+        matrix_type q_last(dim, 0.0);
+        q_last.back() = 1.0;  // 初始化为 [0, 0, ..., 1]^T
+
+        // 调用 zunmqr 应用 Q^H (共轭转置)
+        LAPACK_zunmqr(&side, &trans, &dim, &1, &dim, eigen_matrix.data(), &dim,
+                      tau.data(), q_last.data(), &dim, work.data(), &lwork,
+                      &info);
+        if (info != 0) throw std::runtime_error("Q application failed");
+
+        Timer::get_timer().pause_timing("linear solver");
+        d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
+
+        d_eigen_value = -eigen_matrix[dim - 1, dim - 1] /
+                        (eigen_matrix_derivative.(-1.0 * R_last_col));
+        eigen_value += d_eigen_value;
+
+        if (info != 0) {
+            std::ostringstream oss;
+            oss << "Linear solve failed. ";
+            if (info < 0) {
+                oss << "the " << -info << "-th argument had an illegal value";
+            } else {
+                oss << "The factorization has been completed, but the "
+                    << "block diagonal matrix D is exactly singular at " << info
+                    << ", so the solution could not be computed.";
+            }
+            throw std::runtime_error(oss.str());
+        };
+
+        optimal_work_length = work[0].real();
+        Timer::get_timer().start_timing("integration");
+        matrixAssembler(eigen_matrix);
+        Timer::get_timer().pause_timing("integration");
+        matrixDerivativeSecantAssembler();
+    }
+
     const Parameters& para;
     value_type eigen_value;
     value_type d_eigen_value;
