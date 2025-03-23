@@ -105,10 +105,14 @@ std::complex<double> Parameters::kappa_f_tau(unsigned int m,
     // Define the integrand function
     auto integrand = [&](double taut_transformed) {
         const auto omi = -std::copysign(1, omega.real());
-        const auto taut = arc_coeff * std::atan(taut_transformed) -
-                          1.i * omi * taut_transformed;
+        const auto exp_arg =
+            std::exp(-omi * 1.i * std::atan(taut_transformed / arc_coeff));
+        const auto taut = taut_transformed * exp_arg;
+
         const auto jacob =
-            arc_coeff / (1 + taut_transformed * taut_transformed) - 1.i * omi;
+            exp_arg - (1.i * exp_arg * omi * taut_transformed) /
+                          (arc_coeff *
+                           (1.0 + std::pow((taut_transformed / arc_coeff), 2)));
 
         std::complex<double> lambda_f_tau_term = lambda_f_tau(eta, eta_p, taut);
         const auto bi_eta = bi(eta);
