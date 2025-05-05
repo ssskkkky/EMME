@@ -67,8 +67,9 @@ void Parameters::parameterInit() {
 };
 
 double Parameters::g_integration_f(double eta) const {
-    return -((alpha * eta) / 2.0) - shat * eta * std::cos(eta) + std::sin(eta) +
-           shat * std::sin(eta) + 0.25 * alpha * std::sin(2.0 * eta);
+    return -((alpha * eta) / 2.0) + shat * theta * std::cos(eta) -
+           shat * eta * std::cos(eta) + std::sin(eta) + shat * std::sin(eta) +
+           0.25 * alpha * std::sin(2.0 * eta);
 }
 
 double Parameters::beta_1(double eta, double eta_p) const {
@@ -82,7 +83,8 @@ double Parameters::beta_1_e(double eta, double eta_p) const {
 }
 
 double Parameters::bi(double eta) const {
-    return b_theta * (1.0 + pow(shat * eta - alpha * std::sin(eta), 2));
+    return b_theta *
+           (1.0 + pow(shat * (eta - theta) - alpha * std::sin(eta), 2));
 }
 std::complex<double> Parameters::lambda_f_tau(double eta,
                                               double eta_p,
