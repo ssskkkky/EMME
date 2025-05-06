@@ -16,6 +16,7 @@ struct Parameters {
     double shat;
     double tau;
     double epsilon_n;
+    double epsilon_r;
     double eta_i;
     double eta_e;
     double b_theta;

@@ -32,6 +32,7 @@ Parameters::Parameters(const util::json::Value& input)
       shat(input.at("shat")),
       tau(input.at("tau")),
       epsilon_n(input.at("epsilon_n")),
+      epsilon_r(input.at("epsilon_r")),
       eta_i(input.at("eta_i")),
       eta_e(input.at("eta_e")),
       b_theta(input.at("k_rho") * input.at("k_rho")),
@@ -69,7 +70,10 @@ void Parameters::parameterInit() {
 double Parameters::g_integration_f(double eta) const {
     return -((alpha * eta) / 2.0) + shat * theta * std::cos(eta) -
            shat * eta * std::cos(eta) + std::sin(eta) + shat * std::sin(eta) +
-           0.25 * alpha * std::sin(2.0 * eta);
+           0.25 * alpha * std::sin(2.0 * eta) -
+           (1 - shat) * epsilon_r * eta / q / q;
+    // One should check the magnetic effect in the last term
+    // (1 - shat) * epsilon_r*eta / q / q;. Maybe add alpha somehow in this term
 }
 
 double Parameters::beta_1(double eta, double eta_p) const {
