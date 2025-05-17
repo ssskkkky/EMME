@@ -1,6 +1,7 @@
 #include "Parameters.h"
 
 #include <cmath>
+#include <iostream>
 #include <tuple>
 
 #include "functions.h"
@@ -20,6 +21,11 @@ const Parameters& Parameters::generate(const util::json::Value& input) {
         new (buffer) Stellarator(input);
     } else if (std::string{"cylinder"}.compare(input.at("conf")) == 0) {
         new (buffer) Cylinder(input);
+    } else if (std::string{"taloyMagneticDrift"}.compare(input.at("conf")) ==
+               0) {
+        new (buffer) TaloyMagneticDrift(input);
+    } else if (std::string{"cylinder old"}.compare(input.at("conf")) == 0) {
+        new (buffer) CylinderOld(input);
     } else {
         throw std::runtime_error("Input configuration not supported yet.");
     }
@@ -386,6 +392,64 @@ double Stellarator::g_integration_f(double eta) const {
             (1 + lh - mh * q));
 }
 
-double Cylinder::g_integration_f(double eta) const {
-    return eta;
+Cylinder::Cylinder(const util::json::Value& input)
+    : Parameters(input), shat_coeff(shat_coeff_f(shat)) {
+    std::cout << shat_coeff << std::endl;
+}
+
+double Cylinder::shat_coeff_f(double sv) const {
+    auto ansx_shat = 3.149734790965909 - 0.3745070103237505 / sv +
+                     0.02350589143082148 / (sv * sv);
+    return g_integration_f(ansx_shat) / ansx_shat;
+}
+// double Cylinder::beta_1(double eta) const {
+//     return shat * eta;
+// }
+
+double Cylinder::beta_1(double eta, double eta_p) const {
+    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p) *
+           shat_coeff;
+}
+
+TaloyMagneticDrift::TaloyMagneticDrift(const util::json::Value& input)
+    : Parameters(input) {}
+
+double TaloyMagneticDrift::g_integration_f(double eta) const {
+    // return eta + 1. / 6. * (-1. + 2. * shat - 2. * alpha) * std::pow(eta, 3);
+    // return eta /
+    //        (1 - 1. / 6. * (-1. + 2. * shat - 2. * alpha) * std::pow(eta, 2));
+
+    // return (eta + (std::pow(eta, 3) *
+    //                (-7 - 16 * alpha - 40 * std::pow(alpha, 2) + 28 * shat +
+    //                 80 * alpha * shat - 40 * std::pow(shat, 2))) /
+    //                   (60. * (1 + 2 * alpha - 2 * shat))) /
+    //        (1 + (std::pow(eta, 2) * (1 + 8 * alpha - 4 * shat)) /
+    //                 (20. * (1 + 2 * alpha - 2 * shat)));
+
+    // Pade Approximant Order {3,4}
+    return (eta +
+            (std::pow(eta, 3) *
+             (-31 - 96 * alpha - 168 * std::pow(alpha, 2) -
+              560 * std::pow(alpha, 3) + 186 * shat + 672 * alpha * shat +
+              1680 * std::pow(alpha, 2) * shat - 504 * std::pow(shat, 2) -
+              1680 * alpha * std::pow(shat, 2) + 560 * std::pow(shat, 3))) /
+                (42. * (7 + 16 * alpha + 40 * std::pow(alpha, 2) - 28 * shat -
+                        80 * alpha * shat + 40 * std::pow(shat, 2)))) /
+           (1 +
+            (std::pow(eta, 2) *
+             (3 + 19 * alpha + 56 * std::pow(alpha, 2) - 18 * shat -
+              84 * alpha * shat + 28 * std::pow(shat, 2))) /
+                (7. * (7 + 16 * alpha + 40 * std::pow(alpha, 2) - 28 * shat -
+                       80 * alpha * shat + 40 * std::pow(shat, 2))) +
+            (std::pow(eta, 4) *
+             (11 - 4 * alpha + 704 * std::pow(alpha, 2) - 88 * shat -
+              584 * alpha * shat + 216 * std::pow(shat, 2))) /
+                (840. * (7 + 16 * alpha + 40 * std::pow(alpha, 2) - 28 * shat -
+                         80 * alpha * shat + 40 * std::pow(shat, 2))));
+}
+
+CylinderOld::CylinderOld(const util::json::Value& input) : Parameters(input) {}
+
+double CylinderOld::beta_1(double eta, double eta_p) const {
+    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p);
 }

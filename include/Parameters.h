@@ -44,7 +44,7 @@ struct Parameters {
     bool drift_center_transformation_switch;
     virtual void parameterInit();
     virtual double g_integration_f(double eta) const;
-    double beta_1(double eta, double eta_p) const;
+    virtual double beta_1(double eta, double eta_p) const;
     double beta_1_e(double eta, double eta_p) const;
     virtual double bi(double eta) const;
 
@@ -93,8 +93,20 @@ struct Stellarator : public Parameters {
 };
 
 struct Cylinder : public Parameters {
-    using Parameters::Parameters;
+    Cylinder(const util::json::Value&);
 
+    double shat_coeff;
+    double shat_coeff_f(double sv) const;
+    double beta_1(double eta, double eta_p) const override;
+};
+
+struct CylinderOld : public Parameters {
+    CylinderOld(const util::json::Value&);
+    double beta_1(double eta, double eta_p) const override;
+};
+
+struct TaloyMagneticDrift : public Parameters {
+    TaloyMagneticDrift(const util::json::Value&);
     double g_integration_f(double eta) const override;
 };
 
@@ -104,5 +116,9 @@ static_assert(std::is_trivially_destructible_v<Stellarator>,
               "Stellarator should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<Cylinder>,
               "Cylinder should be trivially destructible.");
+static_assert(std::is_trivially_destructible_v<CylinderOld>,
+              "CylinderOld should be trivially destructible.");
+static_assert(std::is_trivially_destructible_v<Cylinder>,
+              "TaloyMD should be trivially destructible.");
 
 #endif
