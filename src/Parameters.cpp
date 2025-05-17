@@ -71,7 +71,9 @@ double Parameters::g_integration_f(double eta) const {
     return -((alpha * eta) / 2.0) + shat * theta * std::cos(eta) -
            shat * eta * std::cos(eta) + std::sin(eta) + shat * std::sin(eta) +
            0.25 * alpha * std::sin(2.0 * eta) -
-           (1 - shat) * epsilon_r * eta / q / q;
+           (1 - shat) * q * epsilon_r /
+               std ::pow((std::pow(epsilon_r, 2) + std::pow(q, 2)), 3 / 2) *
+               eta;
     // One should check the magnetic effect in the last term
     // (1 - shat) * epsilon_r*eta / q / q;. Maybe add alpha somehow in this term
 }
