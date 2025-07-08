@@ -438,7 +438,6 @@ double TaloyMagneticDrift::g_integration_f(double eta) const {
                          80 * alpha * shat + 40 * std::pow(shat, 2))));
 }
 
-CylinderOld::CylinderOld(const util::json::Value& input) : Parameters(input) {}
 double CylinderOld::g_integration_f(double eta) const {
     return eta;
 }

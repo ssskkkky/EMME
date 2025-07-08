@@ -486,14 +486,6 @@ std::ostream& operator<<(std::ostream& output_stream,
 #endif
 
 /**
- * @brief 计算给定a值的函数 cos(x) + a*x*sin(x)
- * @param x 函数的输入变量x
- * @param a 函数的参数a (非负实数)
- * @return 函数在x处的值
- */
-double omegad_potential_f(double x, double a);
-
-/**
  * @brief 使用二分法在 [0, pi] 区间内找到函数 cos(x) + a*x*sin(x) 的零点。
  * 函数假定在给定区间内有且只有一个零点。
  * @param a 函数的参数a (非负实数)

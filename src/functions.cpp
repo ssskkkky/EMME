@@ -22,16 +22,6 @@ std::string get_date_string() {
 }  // namespace util
 
 /**
- * @brief 计算给定a值的函数 cos(x) + a*x*sin(x)
- * @param x 函数的输入变量x
- * @param a 函数的参数a (非负实数)
- * @return 函数在x处的值
- */
-double omegad_potential_f(double x, double a) {
-    return std::cos(x) + a * x * std::sin(x);
-}
-
-/**
  * @brief 使用二分法在 [0, pi] 区间内找到函数 cos(x) + a*x*sin(x) 的零点。
  * 函数假定在给定区间内有且只有一个零点。
  * @param a 函数的参数a (非负实数)
@@ -40,6 +30,9 @@ double omegad_potential_f(double x, double a) {
  * @return 找到的零点近似值
  */
 double findZeroPoint(double a, double tolerance, int maxIterations) {
+    const auto omegad_potential_f = [](double x, double a) {
+        return std::cos(x) + a * x * std::sin(x);
+    };
     double low = 0.0;
     double high = M_PI;
 

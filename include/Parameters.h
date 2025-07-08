@@ -99,7 +99,7 @@ struct Cylinder : public Parameters {
 };
 
 struct CylinderOld : public Parameters {
-    CylinderOld(const util::json::Value&);
+    using Parameters::Parameters;
     double g_integration_f(double eta) const override;
 };
 
@@ -116,7 +116,7 @@ static_assert(std::is_trivially_destructible_v<Cylinder>,
               "Cylinder should be trivially destructible.");
 static_assert(std::is_trivially_destructible_v<CylinderOld>,
               "CylinderOld should be trivially destructible.");
-static_assert(std::is_trivially_destructible_v<Cylinder>,
+static_assert(std::is_trivially_destructible_v<TaloyMagneticDrift>,
               "TaloyMD should be trivially destructible.");
 
 #endif
