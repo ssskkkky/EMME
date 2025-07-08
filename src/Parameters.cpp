@@ -393,22 +393,12 @@ double Stellarator::g_integration_f(double eta) const {
 }
 
 Cylinder::Cylinder(const util::json::Value& input)
-    : Parameters(input), shat_coeff(shat_coeff_f(shat)) {
+    : Parameters(input), shat_coeff(calculateAverageValue(shat)) {
     std::cout << shat_coeff << std::endl;
 }
 
-double Cylinder::shat_coeff_f(double sv) const {
-    auto ansx_shat = 3.149734790965909 - 0.3745070103237505 / sv +
-                     0.02350589143082148 / (sv * sv);
-    return g_integration_f(ansx_shat) / ansx_shat;
-}
-// double Cylinder::beta_1(double eta) const {
-//     return shat * eta;
-// }
-
-double Cylinder::beta_1(double eta, double eta_p) const {
-    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p) *
-           shat_coeff;
+double Cylinder::g_integration_f(double eta) const {
+    return eta * shat_coeff;
 }
 
 TaloyMagneticDrift::TaloyMagneticDrift(const util::json::Value& input)
@@ -449,7 +439,6 @@ double TaloyMagneticDrift::g_integration_f(double eta) const {
 }
 
 CylinderOld::CylinderOld(const util::json::Value& input) : Parameters(input) {}
-
-double CylinderOld::beta_1(double eta, double eta_p) const {
-    return (q * R) / vt * (2.0 * epsilon_n * omega_s_i) * (eta - eta_p);
+double CylinderOld::g_integration_f(double eta) const {
+    return eta;
 }

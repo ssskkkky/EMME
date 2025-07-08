@@ -480,4 +480,36 @@ std::ostream& operator<<(std::ostream& output_stream,
     return output_stream;
 }
 
+// 定义 M_PI 常量，以防某些编译器或平台未默认提供
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
+/**
+ * @brief 计算给定a值的函数 cos(x) + a*x*sin(x)
+ * @param x 函数的输入变量x
+ * @param a 函数的参数a (非负实数)
+ * @return 函数在x处的值
+ */
+double omegad_potential_f(double x, double a);
+
+/**
+ * @brief 使用二分法在 [0, pi] 区间内找到函数 cos(x) + a*x*sin(x) 的零点。
+ * 函数假定在给定区间内有且只有一个零点。
+ * @param a 函数的参数a (非负实数)
+ * @param tolerance 寻找零点的精度容差
+ * @param maxIterations 最大迭代次数，防止无限循环
+ * @return 找到的零点近似值
+ */
+double findZeroPoint(double a,
+                     double tolerance = 1e-9,
+                     int maxIterations = 100);
+
+/**
+ * @brief 计算函数 cos(x) + a*x*sin(x) 从 0 到其第一个零点的平均值。
+ * @param a 函数的参数a (非负实数)
+ * @return 函数在指定区间内的平均值
+ */
+double calculateAverageValue(double a);
+
 #endif

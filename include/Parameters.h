@@ -94,15 +94,13 @@ struct Stellarator : public Parameters {
 
 struct Cylinder : public Parameters {
     Cylinder(const util::json::Value&);
-
     double shat_coeff;
-    double shat_coeff_f(double sv) const;
-    double beta_1(double eta, double eta_p) const override;
+    double g_integration_f(double eta) const override;
 };
 
 struct CylinderOld : public Parameters {
     CylinderOld(const util::json::Value&);
-    double beta_1(double eta, double eta_p) const override;
+    double g_integration_f(double eta) const override;
 };
 
 struct TaloyMagneticDrift : public Parameters {
