@@ -166,12 +166,21 @@ class EigenSolver {
         std::vector<value_type> work(work_length);
         std::vector<lapack_int> ipiv(dim);
         lapack_int info{};
+        std::vector<value_type> tau(dim); // Added declaration for tau
+        lapack_int lwork = work_length;  // Added declaration for lwork
+        std::vector<value_type> R_last_col(dim); // Add this before first use
 
         if (optimal_work_length > work_length) {
             work_length = optimal_work_length;
             work.resize(work_length);
         }
 
+        std::cout << "[DEBUG] Entered newtonQRSecantIteration" << std::endl;
+        std::cout << "[DEBUG] About to print diagonal elements" << std::endl;
+        std::cout << "Diagonal elements of eigen_matrix before QR factorization:\n";
+        for (int i = 0; i < dim; ++i) {
+            std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
+        }
         Timer::get_timer().start_timing("linear solver");
 #ifdef EMME_MKL
         zgeqrf(&dim, &dim, eigen_matrix.data(), &dim, tau.data(), work.data(),
@@ -183,34 +192,48 @@ class EigenSolver {
 #endif
         if (info != 0) throw std::runtime_error("QR factorization failed");
 
-        matrix_type R_mat_except_last_col(dim - 1, dim - 1);
-        matrix_type R_mat_except_last_col(dim);
+        // After QR factorization, print diagonal of eigen_matrix
+        std::cout << "[DEBUG] Diagonal of eigen_matrix after QR factorization:" << std::endl;
+        for (int i = 0; i < dim; ++i) {
+            std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
+        }
 
-        for (int dim = 0; col < dim - 2; ++col) {
+        matrix_type R_mat_except_last_col(dim - 1, dim - 1);
+        int n = dim, m = dim;
+        for (int col = 0; col < dim - 2; ++col) {
             for (int row = 0; row <= col; ++row) {  // 上三角部分
-                R_mat_except_last_col[row + col * n] =
-                    eigen_matrix[row + col * m];  // 注意列优先存储
+                R_mat_except_last_col(row, col) =
+                    eigen_matrix(row, col);  // Use operator() for matrix access
             }
         }
 
         for (int row = 0; row <= dim - 2; ++row) {  // 上三角部分
             R_last_col[row] =
-                eigen_matrix[row + (dim - 1) * m];  // 注意列优先存储
+                eigen_matrix(row, dim - 1);  // Use operator() for matrix access
         }
+        // Do not set R_last_col[dim - 1] = -1.0; Keep its value as is
 
-        R_last_col[dim - 1] = -1.0;
+        // Before triangular solve, print diagonal of R_mat_except_last_col
+        std::cout << "[DEBUG] Diagonal of R_mat_except_last_col before triangular solve:" << std::endl;
+        for (int i = 0; i < dim - 1; ++i) {
+            std::cout << i << ": " << R_mat_except_last_col(i, i) << std::endl;
+        }
 
         const char uplo = 'U';   // 上三角矩阵
         const char trans = 'N';  // 不进行转置 (A*X = B)
         const char diag = 'N';   // 是否单位三角矩阵
 
         // 调用 LAPACK 函数 ztrtrs
-        LAPACK_ztrtrs(&uplo, &trans, &diag, &dim, &1,
-                      R_mat_except_last_col.data(), &dim, R_last_col.data(), &n,
+        lapack_int one = 1;
+        lapack_int n_rhs = 1;
+        lapack_int r_dim = dim - 1;
+        LAPACK_ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
+                      R_mat_except_last_col.data(), &r_dim, R_last_col.data(), &r_dim,
                       &info);
 
         // 错误处理
         if (info != 0) {
+            std::cout << "[DEBUG] Error: info = " << info << ", R_mat_except_last_col(" << (info-1) << ", " << (info-1) << ") = " << R_mat_except_last_col(info-1, info-1) << std::endl;
             if (info < 0) {
                 throw std::runtime_error("第 " + std::to_string(-info) +
                                          " 个参数非法");
@@ -221,13 +244,14 @@ class EigenSolver {
         }
 
         const char side = 'L';   // 应用 Q 到左侧
-        const char trans = 'N';  // 不转置 Q
+        // Remove duplicate declaration of trans after LAPACK_ztrtrs
 
-        matrix_type q_last(dim, 0.0);
-        q_last.back() = 1.0;  // 初始化为 [0, 0, ..., 1]^T
+        matrix_type q_last(dim, 1); // Use correct constructor
+        for (int i = 0; i < dim; ++i) q_last(i, 0) = 0.0; // Zero-initialize
+        q_last(dim-1, 0) = 1.0;  // Set last element
 
         // 调用 zunmqr 应用 Q^H (共轭转置)
-        LAPACK_zunmqr(&side, &trans, &dim, &1, &dim, eigen_matrix.data(), &dim,
+        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(), &dim,
                       tau.data(), q_last.data(), &dim, work.data(), &lwork,
                       &info);
         if (info != 0) throw std::runtime_error("Q application failed");
@@ -235,8 +259,19 @@ class EigenSolver {
         Timer::get_timer().pause_timing("linear solver");
         d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
 
-        d_eigen_value = -eigen_matrix[dim - 1, dim - 1] /
-                        (eigen_matrix_derivative.(-1.0 * R_last_col));
+        // Remove duplicate declaration of trans
+        // Fix d_eigen_value calculation
+        // d_eigen_value = -eigen_matrix[dim - 1, dim - 1] /
+        //                (eigen_matrix_derivative.(-1.0 * R_last_col));
+        // Assuming eigen_matrix_derivative is a matrix and R_last_col is a vector,
+        // and operator* is overloaded for matrix-vector multiplication:
+        std::vector<value_type> temp_vec(dim, 0.0);
+        for (int i = 0; i < dim; ++i) {
+            for (int j = 0; j < dim; ++j) {
+                temp_vec[i] += eigen_matrix_derivative(i, j) * R_last_col[j];
+            }
+        }
+        d_eigen_value = -eigen_matrix(dim - 1, dim - 1) / temp_vec[dim - 1];
         eigen_value += d_eigen_value;
 
         if (info != 0) {
