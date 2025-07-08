@@ -23,7 +23,7 @@ const Parameters& Parameters::generate(const util::json::Value& input) {
         new (buffer) Cylinder(input);
     } else if (std::string{"taloyMagneticDrift"}.compare(input.at("conf")) ==
                0) {
-        new (buffer) TaloyMagneticDrift(input);
+        new (buffer) TaylorMagneticDrift(input);
     } else if (std::string{"cylinder old"}.compare(input.at("conf")) == 0) {
         new (buffer) CylinderOld(input);
     } else {
@@ -401,10 +401,7 @@ double Cylinder::g_integration_f(double eta) const {
     return eta * shat_coeff;
 }
 
-TaloyMagneticDrift::TaloyMagneticDrift(const util::json::Value& input)
-    : Parameters(input) {}
-
-double TaloyMagneticDrift::g_integration_f(double eta) const {
+double TaylorMagneticDrift::g_integration_f(double eta) const {
     // return eta + 1. / 6. * (-1. + 2. * shat - 2. * alpha) * std::pow(eta, 3);
     // return eta /
     //        (1 - 1. / 6. * (-1. + 2. * shat - 2. * alpha) * std::pow(eta, 2));
