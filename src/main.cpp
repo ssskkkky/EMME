@@ -39,7 +39,7 @@ auto solve_once_eigen(const auto& input,
 
     for (int j = 0; j <= para.iteration_step_limit; j++) {
         timer.start_timing("newtonTracSecantIteration");
-        eigen_solver.newtonTraceSecantIteration();
+        eigen_solver.newtonQRSecantIteration();
         timer.pause_timing("newtonTracSecantIteration");
 
         std::cout << "        " << eigen_solver.eigen_value << '\n';

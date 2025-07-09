@@ -12,6 +12,8 @@
 #include <complex>
 #include <iostream>
 #include <vector>
+#include <fstream>
+#include <nlohmann/json.hpp>
 
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
@@ -157,83 +159,160 @@ class EigenSolver {
         matrixDerivativeSecantAssembler();
     }
 
+    // Utility function to export a matrix to a JSON file
+    // void export_matrix_to_json(const matrix_type& mat, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["step"] = step;
+    //     j["label"] = label;
+    //     j["rows"] = mat.getRows();
+    //     j["cols"] = mat.getCols();
+    //     j["data"] = nlohmann::json::array();
+    //     for (unsigned i = 0; i < mat.getRows(); ++i) {
+    //         nlohmann::json row = nlohmann::json::array();
+    //         for (unsigned jcol = 0; jcol < mat.getCols(); ++jcol) {
+    //             row.push_back({mat(i, jcol).real(), mat(i, jcol).imag()});
+    //         }
+    //         j["data"].push_back(row);
+    //     }
+    //     std::ofstream ofs(filename, std::ios::app);
+    //     ofs << j.dump() << std::endl;
+    // }
+
+    // Utility function to export a vector to a JSON file
+    // void export_vector_to_json(const std::vector<value_type>& vec, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["step"] = step;
+    //     j["label"] = label;
+    //     j["size"] = vec.size();
+    //     j["data"] = nlohmann::json::array();
+    //     for (const auto& v : vec) {
+    //         j["data"].push_back({v.real(), v.imag()});
+    //     }
+    //     std::ofstream ofs(filename, std::ios::app);
+    //     ofs << j.dump() << std::endl;
+    // }
+
+    // inline void export_scalar_to_json(const value_type& val, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["label"] = label;
+    //     j["step"] = step;
+    //     j["value"] = {val.real(), val.imag()};
+    //     std::ofstream file(filename, std::ios::app);
+    //     file << j.dump() << std::endl;
+    // }
+
     void newtonQRSecantIteration() {
         eigen_matrix_old = eigen_matrix;
-        const char* upper = "Upper";
         const lapack_int dim = eigen_matrix.getRows();
         lapack_int work_length = dim * dim;
         lapack_int optimal_work_length{};
         std::vector<value_type> work(work_length);
         std::vector<lapack_int> ipiv(dim);
         lapack_int info{};
-        std::vector<value_type> tau(dim); // Added declaration for tau
-        lapack_int lwork = work_length;  // Added declaration for lwork
-        std::vector<value_type> R_last_col(dim); // Add this before first use
+        std::vector<value_type> tau(dim);         // Added declaration for tau
+        lapack_int lwork = work_length;           // Added declaration for lwork
+        std::vector<value_type> R_last_col(dim);  // Add this before first use
+        std::vector<lapack_int> jpvt(
+            dim);  // Permutation vector for column pivoting
+        std::vector<double> rwork(2 * dim);  // Real work array for zgeqp3
+
+        // Initialize permutation vector (no initial pivoting)
+        for (int i = 0; i < dim; ++i) { jpvt[i] = 0; }
 
         if (optimal_work_length > work_length) {
             work_length = optimal_work_length;
             work.resize(work_length);
         }
 
-        std::cout << "[DEBUG] Entered newtonQRSecantIteration" << std::endl;
-        std::cout << "[DEBUG] About to print diagonal elements" << std::endl;
-        std::cout << "Diagonal elements of eigen_matrix before QR factorization:\n";
-        for (int i = 0; i < dim; ++i) {
-            std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
-        }
         Timer::get_timer().start_timing("linear solver");
+        // All export_matrix_to_json, export_vector_to_json, and
+        // export_scalar_to_json calls are removed from this function and
+        // related debug output functions. No debug files will be created or
+        // written.
 #ifdef EMME_MKL
-        zgeqrf(&dim, &dim, eigen_matrix.data(), &dim, tau.data(), work.data(),
-               &lwork, &info);
-#else
+        matrix_type eigen_matrix_col_major(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                eigen_matrix_col_major(j, i) = eigen_matrix(i, j);
 
-        LAPACK_zgeqrf(&dim, &dim, eigen_matrix.data(), &dim, tau.data(),
-                      work.data(), &lwork, &info);
+        zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim, jpvt.data(),
+               tau.data(), work.data(), &lwork, rwork.data(), &info);
+#else
+        matrix_type eigen_matrix_col_major(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                eigen_matrix_col_major(j, i) = eigen_matrix(i, j);
+
+        LAPACK_zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim,
+                      jpvt.data(), tau.data(), work.data(), &lwork,
+                      rwork.data(), &info);
 #endif
-        if (info != 0) throw std::runtime_error("QR factorization failed");
+        if (info != 0)
+            throw std::runtime_error("QR factorization with pivoting failed");
+
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                eigen_matrix(i, j) = eigen_matrix_col_major(j, i);
 
         // After QR factorization, print diagonal of eigen_matrix
-        std::cout << "[DEBUG] Diagonal of eigen_matrix after QR factorization:" << std::endl;
+        // std::cout << "[DEBUG] Diagonal of eigen_matrix after QR
+        // factorization:" << std::endl; for (int i = 0; i < dim; ++i) {
+        //     std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
+        // }
+
+        // Print permutation vector for debugging
+        // std::cout << "[DEBUG] Column permutation vector jpvt:" << std::endl;
+        // for (int i = 0; i < dim; ++i) {
+        //     std::cout << i << ": " << jpvt[i] << std::endl;
+        // }
+
+        // Find which column corresponds to the last column in the original
+        // matrix
+        int last_col_permuted = -1;
         for (int i = 0; i < dim; ++i) {
-            std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
+            if (jpvt[i] - 1 == dim - 1) {  // jpvt is 1-indexed
+                last_col_permuted = i;
+                break;
+            }
+        }
+        if (last_col_permuted == -1) {
+            throw std::runtime_error("Could not find permuted last column");
         }
 
         matrix_type R_mat_except_last_col(dim - 1, dim - 1);
-        int n = dim, m = dim;
-        for (int col = 0; col < dim - 2; ++col) {
-            for (int row = 0; row <= col; ++row) {  // 上三角部分
-                R_mat_except_last_col(row, col) =
-                    eigen_matrix(row, col);  // Use operator() for matrix access
+        for (int col = 0; col < dim - 1; ++col) {
+            for (int row = 0; row <= col; ++row) {
+                R_mat_except_last_col(row, col) = eigen_matrix(row, col);
             }
         }
-
-        for (int row = 0; row <= dim - 2; ++row) {  // 上三角部分
-            R_last_col[row] =
-                eigen_matrix(row, dim - 1);  // Use operator() for matrix access
+        for (int row = 0; row <= dim - 2; ++row) {
+            R_last_col[row] = eigen_matrix(row, dim - 1);
         }
-        // Do not set R_last_col[dim - 1] = -1.0; Keep its value as is
-
-        // Before triangular solve, print diagonal of R_mat_except_last_col
-        std::cout << "[DEBUG] Diagonal of R_mat_except_last_col before triangular solve:" << std::endl;
+        // export_matrix_to_json(R_mat_except_last_col, "R_mat_except_last_col",
+        // "before_triangular_solve");
+        matrix_type R_last_col_mat_before(dim, 1);
         for (int i = 0; i < dim - 1; ++i) {
-            std::cout << i << ": " << R_mat_except_last_col(i, i) << std::endl;
+            R_last_col_mat_before(i, 0) = R_last_col[i];
         }
+        R_last_col_mat_before(dim - 1, 0) = -1.0;
+        // export_matrix_to_json(R_last_col_mat_before, "R_last_col",
+        // "before_triangular_solve");
 
-        const char uplo = 'U';   // 上三角矩阵
-        const char trans = 'N';  // 不进行转置 (A*X = B)
-        const char diag = 'N';   // 是否单位三角矩阵
-
-        // 调用 LAPACK 函数 ztrtrs
+        const char uplo = 'U';
+        const char trans = 'N';
+        const char diag = 'N';
         lapack_int one = 1;
         lapack_int n_rhs = 1;
         lapack_int r_dim = dim - 1;
+        matrix_type R_mat_except_last_col_col_major(r_dim, r_dim);
+        for (int i = 0; i < r_dim; ++i)
+            for (int j = 0; j < r_dim; ++j)
+                R_mat_except_last_col_col_major(j, i) =
+                    R_mat_except_last_col(i, j);
         LAPACK_ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
-                      R_mat_except_last_col.data(), &r_dim, R_last_col.data(), &r_dim,
-                      &info);
-
-        // 错误处理
+                      R_mat_except_last_col_col_major.data(), &r_dim,
+                      R_last_col.data(), &r_dim, &info);
         if (info != 0) {
-            std::cout << "[DEBUG] Error: info = " << info << ", R_mat_except_last_col(" << (info-1) << ", " << (info-1) << ") = " << R_mat_except_last_col(info-1, info-1) << std::endl;
             if (info < 0) {
                 throw std::runtime_error("第 " + std::to_string(-info) +
                                          " 个参数非法");
@@ -242,37 +321,129 @@ class EigenSolver {
                                          " 个对角线元素为零，无法求解");
             }
         }
+        // export_matrix_to_json(R_mat_except_last_col, "R_mat_except_last_col",
+        // "after_triangular_solve");
+        matrix_type R_last_col_mat_after(dim, 1);
+        for (int i = 0; i < dim; ++i) {
+            R_last_col_mat_after(i, 0) = R_last_col[i];
+        }
+        // export_matrix_to_json(R_last_col_mat_after, "R_last_col_mat_after",
+        // "after_triangular_solve");
 
-        const char side = 'L';   // 应用 Q 到左侧
+        const char side = 'L';  // 应用 Q 到左侧
         // Remove duplicate declaration of trans after LAPACK_ztrtrs
 
-        matrix_type q_last(dim, 1); // Use correct constructor
-        for (int i = 0; i < dim; ++i) q_last(i, 0) = 0.0; // Zero-initialize
-        q_last(dim-1, 0) = 1.0;  // Set last element
+        matrix_type q_last(dim, 1);  // Use correct constructor
+        for (int i = 0; i < dim; ++i) q_last(i, 0) = 0.0;  // Zero-initialize
+        q_last(last_col_permuted, 0) =
+            1.0;  // Set element corresponding to permuted last column
 
         // 调用 zunmqr 应用 Q^H (共轭转置)
-        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(), &dim,
-                      tau.data(), q_last.data(), &dim, work.data(), &lwork,
-                      &info);
+        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(),
+                      &dim, tau.data(), q_last.data(), &dim, work.data(),
+                      &lwork, &info);
         if (info != 0) throw std::runtime_error("Q application failed");
 
         Timer::get_timer().pause_timing("linear solver");
-        d_eigen_value = -1.0 / eigen_matrix_derivative.trace();
+        // --- Correction: Extract R and Q for update ---
+        // R is upper triangular in eigen_matrix (row-major after transpose
+        // back) Q is not explicitly formed, but we can use LAPACK's orgqr/unmqr
+        // to get Q We'll use the last row of Q (after permutation) and the last
+        // element of R
 
-        // Remove duplicate declaration of trans
-        // Fix d_eigen_value calculation
-        // d_eigen_value = -eigen_matrix[dim - 1, dim - 1] /
-        //                (eigen_matrix_derivative.(-1.0 * R_last_col));
-        // Assuming eigen_matrix_derivative is a matrix and R_last_col is a vector,
-        // and operator* is overloaded for matrix-vector multiplication:
+        // 1. Extract R (upper triangle of eigen_matrix)
+        matrix_type R_mat(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = i; j < dim; ++j) R_mat(i, j) = eigen_matrix(i, j);
+
+        // export_matrix_to_json(R_mat, "R_mat", "after_R_formation");
+
+        // 2. Form Q explicitly (column-major for LAPACK)
+        matrix_type Q_mat(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j) Q_mat(j, i) = eigen_matrix(j, i);
+        // Use LAPACK_zungqr to form Q from the output of zgeqp3
+        lapack_int info_q = 0;
+#ifdef EMME_MKL
+        matrix_type Q_mat_col_major(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                Q_mat_col_major(j, i) = eigen_matrix(i, j);
+
+        zungqr(&dim, &dim, &dim, Q_mat_col_major.data(), &dim, tau.data(),
+               work.data(), &lwork, &info_q);
+#else
+        matrix_type Q_mat_col_major(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                Q_mat_col_major(j, i) = eigen_matrix(i, j);
+
+        LAPACK_zungqr(&dim, &dim, &dim, Q_mat_col_major.data(), &dim,
+                      tau.data(), work.data(), &lwork, &info_q);
+#endif
+
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j) Q_mat(i, j) = Q_mat_col_major(j, i);
+
+        if (info_q != 0) throw std::runtime_error("Q formation failed");
+        // Export Q_mat as its conjugate transpose for compatibility with
+        // Mathematica
+        matrix_type Q_mat_conjT(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                Q_mat_conjT(j, i) = std::conj(Q_mat(j, i));
+        // export_matrix_to_json(Q_mat_conjT, "Q_mat", "after_Q_formation");
+
+        Q_mat = Q_mat_conjT;
+        // export_matrix_to_json(Q_mat, "Q_mat", "after_Q_formation");
+
+        // 3. Numerator: last element of permuted R
+        value_type R_last = R_mat(dim - 1, dim - 1);
+        // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
+        // 4. Construct the vector as in Mathematica: v_full = Append[-p, 1.0]
+        std::vector<value_type> v_full(dim);
+        for (int i = 0; i < dim - 1; ++i) { v_full[i] = -R_last_col[i]; }
+        v_full[dim - 1] = 1.0;
+        // export_vector_to_json(v_full, "v_full", "after_v_full_construction");
+        // 5. Permute v_full according to jpvt
+        std::vector<value_type> v_full_permuted(dim);
+        for (int i = 0; i < dim; ++i) {
+            v_full_permuted[jpvt[i] - 1] = v_full[i];  // jpvt is 1-based
+        }
+        // export_vector_to_json(v_full_permuted, "v_full_permuted",
+        // "after_v_full_permutation");
+        // 6. Denominator: last row of permuted Q dotted with
+        // (eigen_matrix_derivative * v_full_permuted)
+        // export_matrix_to_json(eigen_matrix_derivative,
+        // "eigen_matrix_derivative", "before_derivative_update");
         std::vector<value_type> temp_vec(dim, 0.0);
         for (int i = 0; i < dim; ++i) {
             for (int j = 0; j < dim; ++j) {
-                temp_vec[i] += eigen_matrix_derivative(i, j) * R_last_col[j];
+                temp_vec[i] +=
+                    eigen_matrix_derivative(i, j) * v_full_permuted[j];
             }
         }
-        d_eigen_value = -eigen_matrix(dim - 1, dim - 1) / temp_vec[dim - 1];
+        // export_vector_to_json(temp_vec, "temp_vec",
+        // "after_temp_vec_computation");
+        // export_matrix_to_json(eigen_matrix_derivative,
+        // "eigen_matrix_derivative", "after_derivative_update");
+
+        // Calculate Q_dot as the dot product of the last column of Q with
+        // temp_vec
+        value_type Q_dot = 0.0;
+        for (int i = 0; i < dim; ++i) {
+            Q_dot += Q_mat(i, dim - 1) * temp_vec[i];
+        }
+
+        // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
+        // export_scalar_to_json(Q_dot, "Q_dot", "after_Q_dot_computation");
+
+        d_eigen_value = -R_last / Q_dot;
+        // export_scalar_to_json(d_eigen_value, "d_eigen_value",
+        // "after_d_eigen_value_computation");
         eigen_value += d_eigen_value;
+        // export_matrix_to_json(eigen_matrix, "eigen_matrix",
+        // "after_eigenvalue_update");
 
         if (info != 0) {
             std::ostringstream oss;
@@ -426,4 +597,5 @@ class EigenSolver {
 #endif
     }
 };
+
 #endif  // SOLVER_H
