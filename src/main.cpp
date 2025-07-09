@@ -37,10 +37,20 @@ auto solve_once_eigen(const auto& input,
         para, omega_initial_guess, coeff_matrix, grid_info);
     timer.pause_timing("initial");
 
+    // Select iteration method from input
+    std::string iter_method = "QRSecant";
+    if (input.as_object().count("iteration_method")) {
+        iter_method = input.at("iteration_method").as_string();
+    }
+
     for (int j = 0; j <= para.iteration_step_limit; j++) {
-        timer.start_timing("newtonTracSecantIteration");
-        eigen_solver.newtonQRSecantIteration();
-        timer.pause_timing("newtonTracSecantIteration");
+        timer.start_timing("newtonIteration");
+        if (iter_method == "TraceSecant") {
+            eigen_solver.newtonTraceSecantIteration();
+        } else {
+            eigen_solver.newtonQRSecantIteration();
+        }
+        timer.pause_timing("newtonIteration");
 
         std::cout << "        " << eigen_solver.eigen_value << '\n';
         if (std::abs(eigen_solver.d_eigen_value) <
