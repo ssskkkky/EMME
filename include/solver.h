@@ -12,8 +12,8 @@
 #include <complex>
 #include <iostream>
 #include <vector>
-#include <fstream>
-#include <nlohmann/json.hpp>
+// #include <fstream>
+// #include <nlohmann/json.hpp>
 
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
@@ -160,7 +160,9 @@ class EigenSolver {
     }
 
     // Utility function to export a matrix to a JSON file
-    // void export_matrix_to_json(const matrix_type& mat, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    // void export_matrix_to_json(const matrix_type& mat, const std::string&
+    // label, const std::string& step, const std::string& filename =
+    // "qr_debug.json") {
     //     nlohmann::json j;
     //     j["step"] = step;
     //     j["label"] = label;
@@ -179,7 +181,9 @@ class EigenSolver {
     // }
 
     // Utility function to export a vector to a JSON file
-    // void export_vector_to_json(const std::vector<value_type>& vec, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    // void export_vector_to_json(const std::vector<value_type>& vec, const
+    // std::string& label, const std::string& step, const std::string& filename
+    // = "qr_debug.json") {
     //     nlohmann::json j;
     //     j["step"] = step;
     //     j["label"] = label;
@@ -192,7 +196,9 @@ class EigenSolver {
     //     ofs << j.dump() << std::endl;
     // }
 
-    // inline void export_scalar_to_json(const value_type& val, const std::string& label, const std::string& step, const std::string& filename = "qr_debug.json") {
+    // inline void export_scalar_to_json(const value_type& val, const
+    // std::string& label, const std::string& step, const std::string& filename
+    // = "qr_debug.json") {
     //     nlohmann::json j;
     //     j["label"] = label;
     //     j["step"] = step;
@@ -309,9 +315,15 @@ class EigenSolver {
             for (int j = 0; j < r_dim; ++j)
                 R_mat_except_last_col_col_major(j, i) =
                     R_mat_except_last_col(i, j);
+#ifdef EMME_MKL
+        ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
+               R_mat_except_last_col_col_major.data(), &r_dim,
+               R_last_col.data(), &r_dim, &info);
+#else
         LAPACK_ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
                       R_mat_except_last_col_col_major.data(), &r_dim,
                       R_last_col.data(), &r_dim, &info);
+#endif
         if (info != 0) {
             if (info < 0) {
                 throw std::runtime_error("第 " + std::to_string(-info) +
@@ -339,9 +351,14 @@ class EigenSolver {
             1.0;  // Set element corresponding to permuted last column
 
         // 调用 zunmqr 应用 Q^H (共轭转置)
+#ifdef EMME_MKL
+        zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(), &dim,
+               tau.data(), q_last.data(), &dim, work.data(), &lwork, &info);
+#else
         LAPACK_zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(),
                       &dim, tau.data(), q_last.data(), &dim, work.data(),
                       &lwork, &info);
+#endif
         if (info != 0) throw std::runtime_error("Q application failed");
 
         Timer::get_timer().pause_timing("linear solver");
