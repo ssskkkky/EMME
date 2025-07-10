@@ -230,35 +230,28 @@ class EigenSolver {
             work.resize(work_length);
         }
 
-        Timer::get_timer().start_timing("linear solver");
+        auto& timer = Timer::get_timer();
+
+        timer.start_timing(" - QR decomposition");
         // All export_matrix_to_json, export_vector_to_json, and
         // export_scalar_to_json calls are removed from this function and
         // related debug output functions. No debug files will be created or
         // written.
-#ifdef EMME_MKL
         matrix_type eigen_matrix_col_major(dim, dim);
         for (int i = 0; i < dim; ++i)
             for (int j = 0; j < dim; ++j)
                 eigen_matrix_col_major(j, i) = eigen_matrix(i, j);
 
+#ifdef EMME_MKL
         zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim, jpvt.data(),
                tau.data(), work.data(), &lwork, rwork.data(), &info);
 #else
-        matrix_type eigen_matrix_col_major(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j)
-                eigen_matrix_col_major(j, i) = eigen_matrix(i, j);
-
         LAPACK_zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim,
                       jpvt.data(), tau.data(), work.data(), &lwork,
                       rwork.data(), &info);
 #endif
         if (info != 0)
             throw std::runtime_error("QR factorization with pivoting failed");
-
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j)
-                eigen_matrix(i, j) = eigen_matrix_col_major(j, i);
 
         // After QR factorization, print diagonal of eigen_matrix
         // std::cout << "[DEBUG] Diagonal of eigen_matrix after QR
@@ -285,24 +278,7 @@ class EigenSolver {
             throw std::runtime_error("Could not find permuted last column");
         }
 
-        matrix_type R_mat_except_last_col(dim - 1, dim - 1);
-        for (int col = 0; col < dim - 1; ++col) {
-            for (int row = 0; row <= col; ++row) {
-                R_mat_except_last_col(row, col) = eigen_matrix(row, col);
-            }
-        }
-        for (int row = 0; row <= dim - 2; ++row) {
-            R_last_col[row] = eigen_matrix(row, dim - 1);
-        }
-        // export_matrix_to_json(R_mat_except_last_col, "R_mat_except_last_col",
-        // "before_triangular_solve");
-        matrix_type R_last_col_mat_before(dim, 1);
-        for (int i = 0; i < dim - 1; ++i) {
-            R_last_col_mat_before(i, 0) = R_last_col[i];
-        }
-        R_last_col_mat_before(dim - 1, 0) = -1.0;
-        // export_matrix_to_json(R_last_col_mat_before, "R_last_col",
-        // "before_triangular_solve");
+        timer.pause_and_start(" - linear solve");
 
         const char uplo = 'U';
         char trans = 'N';
@@ -311,10 +287,16 @@ class EigenSolver {
         lapack_int n_rhs = 1;
         lapack_int r_dim = dim - 1;
         matrix_type R_mat_except_last_col_col_major(r_dim, r_dim);
-        for (int i = 0; i < r_dim; ++i)
-            for (int j = 0; j < r_dim; ++j)
+        for (int j = 0; j < r_dim; ++j) {
+            for (int i = 0; i <= j; ++i) {
                 R_mat_except_last_col_col_major(j, i) =
-                    R_mat_except_last_col(i, j);
+                    eigen_matrix_col_major(j, i);
+            }
+        }
+        for (int i = 0; i < r_dim; ++i) {
+            R_last_col[i] = eigen_matrix_col_major(r_dim, i);
+        }
+
 #ifdef EMME_MKL
         ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
                R_mat_except_last_col_col_major.data(), &r_dim,
@@ -333,14 +315,6 @@ class EigenSolver {
                                          " 个对角线元素为零，无法求解");
             }
         }
-        // export_matrix_to_json(R_mat_except_last_col, "R_mat_except_last_col",
-        // "after_triangular_solve");
-        matrix_type R_last_col_mat_after(dim, 1);
-        for (int i = 0; i < dim; ++i) {
-            R_last_col_mat_after(i, 0) = R_last_col[i];
-        }
-        // export_matrix_to_json(R_last_col_mat_after, "R_last_col_mat_after",
-        // "after_triangular_solve");
 
         const char side = 'L';  // 应用 Q 到左侧
         // Remove duplicate declaration of trans after LAPACK_ztrtrs
@@ -350,22 +324,16 @@ class EigenSolver {
         q_last(last_col_permuted, 0) =
             1.0;  // Set element corresponding to permuted last column
 
-        Timer::get_timer().pause_timing("linear solver");
+        timer.pause_and_start(" - calculate dlambda");
+
         // --- Correction: Extract R and Q for update ---
         // R is upper triangular in eigen_matrix (row-major after transpose
         // back) Q is not explicitly formed, but we can use LAPACK's orgqr/unmqr
         // to get Q We'll use the last row of Q (after permutation) and the last
         // element of R
 
-        // 1. Extract R (upper triangle of eigen_matrix)
-        matrix_type R_mat(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = i; j < dim; ++j) R_mat(i, j) = eigen_matrix(i, j);
-
-        // export_matrix_to_json(R_mat, "R_mat", "after_R_formation");
-
         // 3. Numerator: last element of permuted R
-        value_type R_last = R_mat(dim - 1, dim - 1);
+        value_type R_last = eigen_matrix_col_major(dim - 1, dim - 1);
         // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
         // 4. Construct the vector as in Mathematica: v_full = Append[-p, 1.0]
         std::vector<value_type> v_full(dim);
@@ -417,24 +385,12 @@ class EigenSolver {
         // export_matrix_to_json(eigen_matrix, "eigen_matrix",
         // "after_eigenvalue_update");
 
-        if (info != 0) {
-            std::ostringstream oss;
-            oss << "Linear solve failed. ";
-            if (info < 0) {
-                oss << "the " << -info << "-th argument had an illegal value";
-            } else {
-                oss << "The factorization has been completed, but the "
-                    << "block diagonal matrix D is exactly singular at " << info
-                    << ", so the solution could not be computed.";
-            }
-            throw std::runtime_error(oss.str());
-        };
-
         optimal_work_length = work[0].real();
-        Timer::get_timer().start_timing("integration");
+        timer.pause_and_start(" - integration");
         matrixAssembler(eigen_matrix);
-        Timer::get_timer().pause_timing("integration");
+        timer.pause_and_start(" - differential");
         matrixDerivativeSecantAssembler();
+        timer.pause_timing();
     }
 
     const Parameters& para;
