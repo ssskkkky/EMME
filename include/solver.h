@@ -12,6 +12,8 @@
 #include <complex>
 #include <iostream>
 #include <vector>
+// #include <fstream>
+// #include <nlohmann/json.hpp>
 
 #include "DedicatedThreadPool.h"
 #include "Grid.h"
@@ -156,6 +158,230 @@ class EigenSolver {
         Timer::get_timer().pause_timing("integration");
         matrixDerivativeSecantAssembler();
     }
+
+    // Utility function to export a matrix to a JSON file
+    // void export_matrix_to_json(const matrix_type& mat, const std::string&
+    // label, const std::string& step, const std::string& filename =
+    // "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["step"] = step;
+    //     j["label"] = label;
+    //     j["rows"] = mat.getRows();
+    //     j["cols"] = mat.getCols();
+    //     j["data"] = nlohmann::json::array();
+    //     for (unsigned i = 0; i < mat.getRows(); ++i) {
+    //         nlohmann::json row = nlohmann::json::array();
+    //         for (unsigned jcol = 0; jcol < mat.getCols(); ++jcol) {
+    //             row.push_back({mat(i, jcol).real(), mat(i, jcol).imag()});
+    //         }
+    //         j["data"].push_back(row);
+    //     }
+    //     std::ofstream ofs(filename, std::ios::app);
+    //     ofs << j.dump() << std::endl;
+    // }
+
+    // Utility function to export a vector to a JSON file
+    // void export_vector_to_json(const std::vector<value_type>& vec, const
+    // std::string& label, const std::string& step, const std::string& filename
+    // = "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["step"] = step;
+    //     j["label"] = label;
+    //     j["size"] = vec.size();
+    //     j["data"] = nlohmann::json::array();
+    //     for (const auto& v : vec) {
+    //         j["data"].push_back({v.real(), v.imag()});
+    //     }
+    //     std::ofstream ofs(filename, std::ios::app);
+    //     ofs << j.dump() << std::endl;
+    // }
+
+    // inline void export_scalar_to_json(const value_type& val, const
+    // std::string& label, const std::string& step, const std::string& filename
+    // = "qr_debug.json") {
+    //     nlohmann::json j;
+    //     j["label"] = label;
+    //     j["step"] = step;
+    //     j["value"] = {val.real(), val.imag()};
+    //     std::ofstream file(filename, std::ios::app);
+    //     file << j.dump() << std::endl;
+    // }
+
+    void newtonQRSecantIteration() {
+        eigen_matrix_old = eigen_matrix;
+        const lapack_int dim = eigen_matrix.getRows();
+        lapack_int work_length = dim * dim;
+        lapack_int optimal_work_length{};
+        std::vector<value_type> work(work_length);
+        std::vector<lapack_int> ipiv(dim);
+        lapack_int info{};
+        std::vector<value_type> tau(dim);         // Added declaration for tau
+        lapack_int lwork = work_length;           // Added declaration for lwork
+        std::vector<value_type> R_last_col(dim);  // Add this before first use
+        std::vector<lapack_int> jpvt(
+            dim);  // Permutation vector for column pivoting
+        std::vector<double> rwork(2 * dim);  // Real work array for zgeqp3
+
+        // Initialize permutation vector (no initial pivoting)
+        for (int i = 0; i < dim; ++i) { jpvt[i] = 0; }
+
+        if (optimal_work_length > work_length) {
+            work_length = optimal_work_length;
+            work.resize(work_length);
+        }
+
+        auto& timer = Timer::get_timer();
+
+        timer.start_timing(" - QR decomposition");
+        // All export_matrix_to_json, export_vector_to_json, and
+        // export_scalar_to_json calls are removed from this function and
+        // related debug output functions. No debug files will be created or
+        // written.
+        matrix_type eigen_matrix_col_major(dim, dim);
+        for (int i = 0; i < dim; ++i)
+            for (int j = 0; j < dim; ++j)
+                eigen_matrix_col_major(j, i) = eigen_matrix(i, j);
+
+#ifdef EMME_MKL
+        zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim, jpvt.data(),
+               tau.data(), work.data(), &lwork, rwork.data(), &info);
+#else
+        LAPACK_zgeqp3(&dim, &dim, eigen_matrix_col_major.data(), &dim,
+                      jpvt.data(), tau.data(), work.data(), &lwork,
+                      rwork.data(), &info);
+#endif
+        if (info != 0)
+            throw std::runtime_error("QR factorization with pivoting failed");
+
+        // After QR factorization, print diagonal of eigen_matrix
+        // std::cout << "[DEBUG] Diagonal of eigen_matrix after QR
+        // factorization:" << std::endl; for (int i = 0; i < dim; ++i) {
+        //     std::cout << i << ": " << eigen_matrix(i, i) << std::endl;
+        // }
+
+        // Print permutation vector for debugging
+        // std::cout << "[DEBUG] Column permutation vector jpvt:" << std::endl;
+        // for (int i = 0; i < dim; ++i) {
+        //     std::cout << i << ": " << jpvt[i] << std::endl;
+        // }
+
+        // Find which column corresponds to the last column in the original
+        // matrix
+        int last_col_permuted = -1;
+        for (int i = 0; i < dim; ++i) {
+            if (jpvt[i] - 1 == dim - 1) {  // jpvt is 1-indexed
+                last_col_permuted = i;
+                break;
+            }
+        }
+        if (last_col_permuted == -1) {
+            throw std::runtime_error("Could not find permuted last column");
+        }
+
+        timer.pause_and_start(" - linear solve");
+
+        const char uplo = 'U';
+        char trans = 'N';
+        const char diag = 'N';
+        const lapack_int one = 1;
+        const lapack_int n_rhs = 1;
+        const lapack_int r_dim = dim - 1;
+        matrix_type R_mat_except_last_col_col_major(r_dim, r_dim);
+        for (int j = 0; j < r_dim; ++j) {
+            for (int i = 0; i <= j; ++i) {
+                R_mat_except_last_col_col_major(j, i) =
+                    eigen_matrix_col_major(j, i);
+            }
+        }
+        for (int i = 0; i < r_dim; ++i) {
+            R_last_col[i] = eigen_matrix_col_major(r_dim, i);
+        }
+
+#ifdef EMME_MKL
+        ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
+               R_mat_except_last_col_col_major.data(), &r_dim,
+               R_last_col.data(), &r_dim, &info);
+#else
+        LAPACK_ztrtrs(&uplo, &trans, &diag, &r_dim, &n_rhs,
+                      R_mat_except_last_col_col_major.data(), &r_dim,
+                      R_last_col.data(), &r_dim, &info);
+#endif
+        if (info != 0) {
+            if (info < 0) {
+                throw std::runtime_error("第 " + std::to_string(-info) +
+                                         " 个参数非法");
+            } else {
+                throw std::runtime_error("矩阵第 " + std::to_string(info) +
+                                         " 个对角线元素为零，无法求解");
+            }
+        }
+
+        timer.pause_and_start(" - calculate dlambda");
+
+        // --- Correction: Extract R and Q for update ---
+        // R is upper triangular in eigen_matrix (row-major after transpose
+        // back) Q is not explicitly formed, but we can use LAPACK's orgqr/unmqr
+        // to get Q We'll use the last row of Q (after permutation) and the last
+        // element of R
+
+        // 3. Numerator: last element of permuted R
+        // 5. Permute v_full according to jpvt
+        std::vector<value_type> v_full_permuted(dim);
+        for (int i = 0; i < dim - 1; ++i) {
+            v_full_permuted[jpvt[i] - 1] = -R_last_col[i];  // jpvt is 1-based
+        }
+        v_full_permuted[jpvt[dim - 1] - 1] = 1.;  // jpvt is 1-based
+        // export_vector_to_json(v_full_permuted, "v_full_permuted",
+        // "after_v_full_permutation");
+        // 6. Denominator: last row of permuted Q dotted with
+        // (eigen_matrix_derivative * v_full_permuted)
+        // export_matrix_to_json(eigen_matrix_derivative,
+        // "eigen_matrix_derivative", "before_derivative_update");
+        std::vector<value_type> temp_vec(dim, 0.0);
+        for (int i = 0; i < dim; ++i) {
+            for (int j = 0; j < dim; ++j) {
+                temp_vec[i] +=
+                    eigen_matrix_derivative(i, j) * v_full_permuted[j];
+            }
+        }
+        // export_vector_to_json(temp_vec, "temp_vec",
+        // "after_temp_vec_computation");
+        // export_matrix_to_json(eigen_matrix_derivative,
+        // "eigen_matrix_derivative", "after_derivative_update");
+        // 调用 zunmqr 应用 Q^H (共轭转置)
+        trans = 'C';
+        const char side = 'L';  // 应用 Q 到左侧
+
+        const value_type R_last = eigen_matrix_col_major(dim - 1, dim - 1);
+#ifdef EMME_MKL
+        zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix_col_major.data(),
+               &dim, tau.data(), temp_vec.data(), &dim, work.data(), &lwork,
+               &info);
+#else
+        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim,
+                      eigen_matrix_col_major.data(), &dim, tau.data(),
+                      temp_vec.data(), &dim, work.data(), &lwork, &info);
+#endif
+        if (info != 0) throw std::runtime_error("Q application failed");
+
+        // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
+        // export_scalar_to_json(Q_dot, "Q_dot", "after_Q_dot_computation");
+
+        d_eigen_value = -R_last / temp_vec.back();
+        // export_scalar_to_json(d_eigen_value, "d_eigen_value",
+        // "after_d_eigen_value_computation");
+        eigen_value += d_eigen_value;
+        // export_matrix_to_json(eigen_matrix, "eigen_matrix",
+        // "after_eigenvalue_update");
+
+        optimal_work_length = work[0].real();
+        timer.pause_and_start(" - integration");
+        matrixAssembler(eigen_matrix);
+        timer.pause_and_start(" - differential");
+        matrixDerivativeSecantAssembler();
+        timer.pause_timing();
+    }
+
     const Parameters& para;
     value_type eigen_value;
     value_type d_eigen_value;
@@ -288,4 +514,5 @@ class EigenSolver {
 #endif
     }
 };
+
 #endif  // SOLVER_H
