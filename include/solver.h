@@ -305,7 +305,7 @@ class EigenSolver {
         // "before_triangular_solve");
 
         const char uplo = 'U';
-        const char trans = 'N';
+        char trans = 'N';
         const char diag = 'N';
         lapack_int one = 1;
         lapack_int n_rhs = 1;
@@ -350,17 +350,6 @@ class EigenSolver {
         q_last(last_col_permuted, 0) =
             1.0;  // Set element corresponding to permuted last column
 
-        // 调用 zunmqr 应用 Q^H (共轭转置)
-#ifdef EMME_MKL
-        zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(), &dim,
-               tau.data(), q_last.data(), &dim, work.data(), &lwork, &info);
-#else
-        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix.data(),
-                      &dim, tau.data(), q_last.data(), &dim, work.data(),
-                      &lwork, &info);
-#endif
-        if (info != 0) throw std::runtime_error("Q application failed");
-
         Timer::get_timer().pause_timing("linear solver");
         // --- Correction: Extract R and Q for update ---
         // R is upper triangular in eigen_matrix (row-major after transpose
@@ -374,45 +363,6 @@ class EigenSolver {
             for (int j = i; j < dim; ++j) R_mat(i, j) = eigen_matrix(i, j);
 
         // export_matrix_to_json(R_mat, "R_mat", "after_R_formation");
-
-        // 2. Form Q explicitly (column-major for LAPACK)
-        matrix_type Q_mat(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j) Q_mat(j, i) = eigen_matrix(j, i);
-        // Use LAPACK_zungqr to form Q from the output of zgeqp3
-        lapack_int info_q = 0;
-#ifdef EMME_MKL
-        matrix_type Q_mat_col_major(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j)
-                Q_mat_col_major(j, i) = eigen_matrix(i, j);
-
-        zungqr(&dim, &dim, &dim, Q_mat_col_major.data(), &dim, tau.data(),
-               work.data(), &lwork, &info_q);
-#else
-        matrix_type Q_mat_col_major(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j)
-                Q_mat_col_major(j, i) = eigen_matrix(i, j);
-
-        LAPACK_zungqr(&dim, &dim, &dim, Q_mat_col_major.data(), &dim,
-                      tau.data(), work.data(), &lwork, &info_q);
-#endif
-
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j) Q_mat(i, j) = Q_mat_col_major(j, i);
-
-        if (info_q != 0) throw std::runtime_error("Q formation failed");
-        // Export Q_mat as its conjugate transpose for compatibility with
-        // Mathematica
-        matrix_type Q_mat_conjT(dim, dim);
-        for (int i = 0; i < dim; ++i)
-            for (int j = 0; j < dim; ++j)
-                Q_mat_conjT(j, i) = std::conj(Q_mat(j, i));
-        // export_matrix_to_json(Q_mat_conjT, "Q_mat", "after_Q_formation");
-
-        Q_mat = Q_mat_conjT;
-        // export_matrix_to_json(Q_mat, "Q_mat", "after_Q_formation");
 
         // 3. Numerator: last element of permuted R
         value_type R_last = R_mat(dim - 1, dim - 1);
@@ -444,18 +394,23 @@ class EigenSolver {
         // "after_temp_vec_computation");
         // export_matrix_to_json(eigen_matrix_derivative,
         // "eigen_matrix_derivative", "after_derivative_update");
-
-        // Calculate Q_dot as the dot product of the last column of Q with
-        // temp_vec
-        value_type Q_dot = 0.0;
-        for (int i = 0; i < dim; ++i) {
-            Q_dot += Q_mat(i, dim - 1) * temp_vec[i];
-        }
+        // 调用 zunmqr 应用 Q^H (共轭转置)
+        trans = 'C';
+#ifdef EMME_MKL
+        zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix_col_major.data(),
+               &dim, tau.data(), temp_vec.data(), &dim, work.data(), &lwork,
+               &info);
+#else
+        LAPACK_zunmqr(&side, &trans, &dim, &one, &dim,
+                      eigen_matrix_col_major.data(), &dim, tau.data(),
+                      temp_vec.data(), &dim, work.data(), &lwork, &info);
+#endif
+        if (info != 0) throw std::runtime_error("Q application failed");
 
         // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
         // export_scalar_to_json(Q_dot, "Q_dot", "after_Q_dot_computation");
 
-        d_eigen_value = -R_last / Q_dot;
+        d_eigen_value = -R_last / temp_vec.back();
         // export_scalar_to_json(d_eigen_value, "d_eigen_value",
         // "after_d_eigen_value_computation");
         eigen_value += d_eigen_value;
