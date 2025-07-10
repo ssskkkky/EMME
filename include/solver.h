@@ -283,9 +283,9 @@ class EigenSolver {
         const char uplo = 'U';
         char trans = 'N';
         const char diag = 'N';
-        lapack_int one = 1;
-        lapack_int n_rhs = 1;
-        lapack_int r_dim = dim - 1;
+        const lapack_int one = 1;
+        const lapack_int n_rhs = 1;
+        const lapack_int r_dim = dim - 1;
         matrix_type R_mat_except_last_col_col_major(r_dim, r_dim);
         for (int j = 0; j < r_dim; ++j) {
             for (int i = 0; i <= j; ++i) {
@@ -316,14 +316,6 @@ class EigenSolver {
             }
         }
 
-        const char side = 'L';  // 应用 Q 到左侧
-        // Remove duplicate declaration of trans after LAPACK_ztrtrs
-
-        matrix_type q_last(dim, 1);  // Use correct constructor
-        for (int i = 0; i < dim; ++i) q_last(i, 0) = 0.0;  // Zero-initialize
-        q_last(last_col_permuted, 0) =
-            1.0;  // Set element corresponding to permuted last column
-
         timer.pause_and_start(" - calculate dlambda");
 
         // --- Correction: Extract R and Q for update ---
@@ -333,18 +325,12 @@ class EigenSolver {
         // element of R
 
         // 3. Numerator: last element of permuted R
-        value_type R_last = eigen_matrix_col_major(dim - 1, dim - 1);
-        // export_scalar_to_json(R_last, "R_last", "after_R_last_computation");
-        // 4. Construct the vector as in Mathematica: v_full = Append[-p, 1.0]
-        std::vector<value_type> v_full(dim);
-        for (int i = 0; i < dim - 1; ++i) { v_full[i] = -R_last_col[i]; }
-        v_full[dim - 1] = 1.0;
-        // export_vector_to_json(v_full, "v_full", "after_v_full_construction");
         // 5. Permute v_full according to jpvt
         std::vector<value_type> v_full_permuted(dim);
-        for (int i = 0; i < dim; ++i) {
-            v_full_permuted[jpvt[i] - 1] = v_full[i];  // jpvt is 1-based
+        for (int i = 0; i < dim - 1; ++i) {
+            v_full_permuted[jpvt[i] - 1] = -R_last_col[i];  // jpvt is 1-based
         }
+        v_full_permuted[jpvt[dim - 1] - 1] = 1.;  // jpvt is 1-based
         // export_vector_to_json(v_full_permuted, "v_full_permuted",
         // "after_v_full_permutation");
         // 6. Denominator: last row of permuted Q dotted with
@@ -364,6 +350,9 @@ class EigenSolver {
         // "eigen_matrix_derivative", "after_derivative_update");
         // 调用 zunmqr 应用 Q^H (共轭转置)
         trans = 'C';
+        const char side = 'L';  // 应用 Q 到左侧
+
+        const value_type R_last = eigen_matrix_col_major(dim - 1, dim - 1);
 #ifdef EMME_MKL
         zunmqr(&side, &trans, &dim, &one, &dim, eigen_matrix_col_major.data(),
                &dim, tau.data(), temp_vec.data(), &dim, work.data(), &lwork,
