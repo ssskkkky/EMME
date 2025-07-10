@@ -38,19 +38,16 @@ auto solve_once_eigen(const auto& input,
     timer.pause_timing("initial");
 
     // Select iteration method from input
-    std::string iter_method = "QRSecant";
-    if (input.as_object().count("iteration_method")) {
-        iter_method = input.at("iteration_method").as_string();
-    }
+    auto iter_method = input.at("iteration_method").as_string();
 
     for (int j = 0; j <= para.iteration_step_limit; j++) {
-        timer.start_timing("newtonIteration");
+        timer.start_timing("Iteration");
         if (iter_method == "TraceSecant") {
             eigen_solver.newtonTraceSecantIteration();
         } else {
             eigen_solver.newtonQRSecantIteration();
         }
-        timer.pause_timing("newtonIteration");
+        timer.pause_timing("Iteration");
 
         std::cout << "        " << eigen_solver.eigen_value << '\n';
         if (std::abs(eigen_solver.d_eigen_value) <
